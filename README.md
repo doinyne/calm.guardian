@@ -1,0 +1,3 @@
+# Calm Guardian
+
+Calm Guardian (UI brand: **Sanctuary**) helps professionals with episodic mental health conditions protect their Bluesky presence. One tap turns on **Calm Mode**: recent posts are backed up to Supabase and then deleted from Bluesky, so they're invisible while you're unwell. Posts made during an active calm session are swept the same way. Later, you review your **archive** and either **restore** a post to Bluesky or delete it for good. Trusted **guardians** receive a calm email when Calm Mode starts. A post is never deleted from Bluesky until its backup is confirmed stored, and every operation is safe to retry.
