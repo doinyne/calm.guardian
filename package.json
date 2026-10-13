@@ -1,0 +1,25 @@
+{
+  "name": "calm-guardian",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Hide and restore Bluesky posts during a mental health episode.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/doinyne/calm.guardian.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @calm-guardian/api",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5"
+  }
+}
