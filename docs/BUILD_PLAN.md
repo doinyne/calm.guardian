@@ -51,9 +51,10 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0004](decisions/0004-hosting.md) | Cloud Run (europe-west2) + Supabase (London), via Terraform | Proposed |
 | [0005](decisions/0005-mobile-stack.md) | Expo SDK 58, dev builds, EAS, iPhone + Android phones only | Proposed |
 | [0006](decisions/0006-testing.md) | Vitest, jest-expo + RNTL, Maestro | Proposed |
-| [0007](decisions/0007-styling.md) | `StyleSheet` + typed tokens, light and dark | Proposed |
+| [0007](decisions/0007-styling.md) | Uniwind + React Native Reusables + Reanimated; shared brand colours | Proposed |
 | [0008](decisions/0008-store-positioning.md) | Personal accounts, free, not a medical app | Proposed |
 | [0009](decisions/0009-typescript-6.md) | Pin TypeScript 6.0 and ESLint 9 until the toolchain catches up | Proposed |
+| [0010](decisions/0010-website.md) | Public website in `apps/web`: Next.js, KokonutUI, Motion | Proposed |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
@@ -71,7 +72,8 @@ self-reviewed PR.
 - [ ] Monorepo: `apps/api`, `apps/mobile`, `packages/shared`, `supabase/`
 - [ ] TypeScript strict everywhere, ESLint + Prettier, pre-commit hook
 - [ ] API: validated config, request IDs, redacted structured logs, one error shape, `/health` + `/ready`, Dockerfile
-- [ ] Mobile: Expo SDK 58 + Expo Router, theme (light + dark), build variants, `eas.json`, typed API client, API status screen
+- [ ] Mobile: Expo SDK 58 + Expo Router, Uniwind + React Native Reusables theme (light + dark), build variants, `eas.json`, typed API client, API status screen
+- [ ] Website: `apps/web` (Next.js + KokonutUI + Motion) with landing, privacy, terms, support and account deletion placeholders
 - [ ] Tests: Vitest (API, shared), jest-expo (mobile), Maestro smoke flow
 - [ ] CI: typecheck + lint + test on every PR
 
