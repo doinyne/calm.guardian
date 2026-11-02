@@ -1,0 +1,9 @@
+package-lock.json
+dist/
+coverage/
+.expo/
+apps/mobile/ios/
+apps/mobile/android/
+supabase/.temp/
+# Prose is hand-wrapped; don't reflow it.
+*.md
