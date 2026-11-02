@@ -22,11 +22,13 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={NAVIGATION_THEME[colorScheme]}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        {/* Each group says where to send people it turns away. Without that, a signed-out
+            user opening the app at "/" gets an unmatched route instead of the welcome screen. */}
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Protected guard={isSignedIn}>
+          <Stack.Protected guard={isSignedIn} redirectTo="/welcome">
             <Stack.Screen name="(app)" />
           </Stack.Protected>
-          <Stack.Protected guard={!isSignedIn}>
+          <Stack.Protected guard={!isSignedIn} redirectTo="/">
             <Stack.Screen name="(auth)" />
           </Stack.Protected>
         </Stack>
