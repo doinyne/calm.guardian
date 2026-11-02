@@ -5,8 +5,11 @@ correct as of late 2026; check them when you sign up.
 
 ## 1. Decide (free, but permanent)
 
-- [ ] **Store name.** "Calm Guardian" or "Sanctuary"? It must be unique on the App Store. Avoid
-  other companies' trademarks in the name (e.g. "for Bluesky").
+- [x] **Store name: "Calm Guardian"** (decided 2026-11-02).
+  - [ ] Check the name is free on the App Store. Apple requires unique app names; Google Play doesn't.
+  - [ ] Search the UK IPO trademark register for "Calm" and "Guardian" in classes 9 (apps) and 42
+    (online services). "Calm" is also the brand of a large meditation app in a nearby space.
+  - Avoid other companies' trademarks in the name (e.g. "for Bluesky").
 - [ ] **Domain** (around £10–£40 a year). We need it for:
   - privacy policy, terms and support pages (both stores)
   - the account deletion web page (Google)
