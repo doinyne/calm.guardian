@@ -1,0 +1,10 @@
+package-lock.json
+dist/
+coverage/
+.expo/
+apps/mobile/ios/
+apps/mobile/android/
+supabase/.temp/
+apps/mobile/src/uniwind-types.d.ts
+# Prose is hand-wrapped; don't reflow it.
+*.md

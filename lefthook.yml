@@ -1,0 +1,15 @@
+pre-commit:
+  jobs:
+    - name: format
+      glob: '*.{js,mjs,cjs,ts,tsx,json,yml,yaml}'
+      run: npx prettier --write {staged_files}
+      stage_fixed: true
+
+    - name: lint
+      glob: '*.{js,mjs,cjs,ts,tsx}'
+      run: npx eslint --max-warnings 0 --no-warn-ignored {staged_files}
+
+pre-push:
+  jobs:
+    - name: typecheck
+      run: npm run typecheck

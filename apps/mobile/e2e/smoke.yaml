@@ -1,0 +1,14 @@
+# Smoke test: the app launches and shows the welcome screen.
+#
+# Run against an installed build on a simulator or emulator:
+#   maestro test apps/mobile/e2e                                # dev build (Metro must be running)
+#   maestro test -e APP_ID=app.calmguardian.preview apps/mobile/e2e
+appId: ${APP_ID}
+env:
+  APP_ID: app.calmguardian.dev
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Calm Guardian'
+    timeout: 30000
+- assertVisible: 'Your posts stay safe'

@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+.git
+.github
+docs
+infra
+supabase
+apps/mobile/*
+!apps/mobile/package.json
