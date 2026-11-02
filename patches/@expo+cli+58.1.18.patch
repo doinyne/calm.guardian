@@ -1,0 +1,30 @@
+diff --git a/node_modules/@expo/cli/build/src/start/platforms/ios/AppleDeviceManager.js b/node_modules/@expo/cli/build/src/start/platforms/ios/AppleDeviceManager.js
+index 840d0ce..9c4d693 100644
+--- a/node_modules/@expo/cli/build/src/start/platforms/ios/AppleDeviceManager.js
++++ b/node_modules/@expo/cli/build/src/start/platforms/ios/AppleDeviceManager.js
+@@ -278,14 +278,22 @@ class AppleDeviceManager extends _DeviceManager.DeviceManager {
+         // If we're in interactive mode, we can attempt to focus the Simulator app.
+         // In non-interactive mode, we should assume this is an agent and not attempt to focus the Simulator app since it doesn't need focus.
+         if ((0, _interactive.isInteractive)()) {
+-            // TODO: Focus the individual window
+-            await (0, _osascript().spawnAsync)([
++            // Calm Guardian patch: Xcode 27's DeviceHub only comes forward on `activate`, still
++            // showing whichever device it showed last. Its devices:// link brings it forward on the
++            // device the app was just launched on.
++            const focused = await (0, _osascript().spawnAsync)([
+                 `if application "Simulator" is running then`,
+                 `tell application "Simulator" to activate`,
++                `return "Simulator"`,
+                 `else if application "DeviceHub" is running then`,
+-                `tell application "DeviceHub" to activate`,
++                `return "DeviceHub"`,
+                 `end if`
+             ]);
++            if (focused.stdout.trim() === 'DeviceHub' && this.device.udid) {
++                await require("@expo/spawn-async")('open', [
++                    `devices://device/open?id=${this.device.udid}`
++                ]).catch(()=>{});
++            }
+         }
+     }
+     getExpoGoAppId() {

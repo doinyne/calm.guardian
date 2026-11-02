@@ -160,7 +160,8 @@ Run from the repo root unless noted.
 | Test everything | `npm test` |
 | Format | `npm run format` |
 | API dev server | `npm run dev:api` |
-| Mobile dev server | `npm run dev:mobile` |
+| Mobile dev server (simulator; Metro on `localhost`, because Dean's firewall blocks LAN connections) | `npm run dev:mobile` |
+| Mobile dev server for a physical phone (Expo tunnel) | `npm run start:device -w @calm-guardian/mobile` |
 | Mobile dev build (simulator) | `npm run ios -w @calm-guardian/mobile` / `npm run android -w @calm-guardian/mobile` |
 | Website dev server (port 3001) | `npm run dev -w @calm-guardian/web` |
 | Website production build | `npm run build -w @calm-guardian/web` |

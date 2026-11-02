@@ -5,7 +5,8 @@
   "description": "Calm Guardian iOS and Android app.",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --dev-client",
+    "start": "expo start --dev-client --localhost",
+    "start:device": "expo start --dev-client --tunnel",
     "ios": "expo run:ios",
     "android": "expo run:android",
     "test": "jest",

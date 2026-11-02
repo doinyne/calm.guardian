@@ -38,6 +38,13 @@ hid native problems until late and gave us no store pipeline.
   copies break hooks or Reanimated at runtime. The root `package.json` `overrides` pin `react`,
   `react-dom` and `react-native-worklets` to the SDK's versions. Update them at every SDK upgrade,
   and check with `npx expo install --check` and `npm ls react`.
+- **Xcode 27 replaced Simulator.app with Device Hub.** Expo CLI 58 brings Device Hub forward
+  but not the right device, so `patches/@expo+cli+58.1.18.patch` (applied by `patch-package` on
+  install) sends Device Hub a `devices://` link for the device the app was launched on. Drop the
+  patch when Expo fixes this upstream. `patch-package` fails loudly if an Expo upgrade changes that
+  file.
+- Metro serves on `localhost` because Dean's firewall blocks LAN connections; physical phones use
+  `npm run start:device` (Expo tunnel).
 - The iPad is out of scope. Apple still runs iPhone apps on iPad in compatibility mode, so layouts must not break there.
 - Bumping the SDK yearly keeps us above Google Play's target API level requirement.
 - Bundle IDs are permanent once uploaded. The production values are set once in `app.config.ts`
