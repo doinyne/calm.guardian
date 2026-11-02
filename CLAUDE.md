@@ -136,7 +136,11 @@ heuristics, not laws. When one doesn't fit TS or React, explain the trade-off.
 ## Project map
 
 - `apps/api`: Hono API on Node, which runs on Cloud Run. Owns all data access and connected-account tokens.
-- `apps/mobile`: Expo app (Expo Router, EAS). iOS and Android only, no web target.
+- `apps/mobile`: Expo app (Expo Router, EAS, Uniwind + React Native Reusables). iOS and Android
+  only, no web target. Add UI components with `npx @react-native-reusables/cli@latest add <name>`.
+- `apps/web`: public website (Next.js 16, Tailwind v4, shadcn, KokonutUI, Motion): landing,
+  privacy, terms, support and account deletion pages. Next 16 has breaking changes; read
+  `apps/web/AGENTS.md` and the docs in `node_modules/next/dist/docs/` before changing it.
 - `packages/shared`: zod schemas, domain types and constants shared by the API and the app.
 - `supabase/`: local Supabase config and SQL migrations (schema as code).
 - `infra/`: Terraform for GCP.
@@ -158,5 +162,7 @@ Run from the repo root unless noted.
 | API dev server | `npm run dev:api` |
 | Mobile dev server | `npm run dev:mobile` |
 | Mobile dev build (simulator) | `npm run ios -w @calm-guardian/mobile` / `npm run android -w @calm-guardian/mobile` |
+| Website dev server (port 3001) | `npm run dev -w @calm-guardian/web` |
+| Website production build | `npm run build -w @calm-guardian/web` |
 | Local Supabase | `supabase start` / `supabase stop` |
 | E2E smoke (needs a running dev build) | `maestro test apps/mobile/e2e` |

@@ -29,6 +29,7 @@
     "@types/node": "^26.6.5",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~58.0.4",
+    "eslint-config-next": "^16.4.4",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^16.0.0",
     "lefthook": "^2.2.2",

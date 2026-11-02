@@ -2,6 +2,7 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import expoConfig from 'eslint-config-expo/flat.js';
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -16,6 +17,8 @@ export default defineConfig([
     'apps/mobile/android/',
     'apps/mobile/expo-env.d.ts',
     'apps/mobile/src/uniwind-types.d.ts',
+    '**/.next/',
+    'apps/web/next-env.d.ts',
     'supabase/',
   ]),
 
@@ -29,6 +32,12 @@ export default defineConfig([
     // The TypeScript compiler already reports unresolved imports, including the `@/` alias.
     files: ['apps/mobile/**/*.{ts,tsx}'],
     rules: { 'import/no-unresolved': 'off' },
+  },
+
+  {
+    files: ['apps/web/**/*.{js,jsx,ts,tsx}'],
+    extends: [nextCoreWebVitals],
+    settings: { next: { rootDir: 'apps/web/' } },
   },
 
   {
