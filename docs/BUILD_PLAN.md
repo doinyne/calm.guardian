@@ -79,7 +79,8 @@ self-reviewed PR.
 - [ ] CI: typecheck + lint + test on every PR
 
 ### M0b: Release pipeline (needs Dean's accounts; see `docs/release/accounts-setup.md`)
-- [ ] Domain, bundle ID and store name decided
+- [x] Store name decided: **Calm Guardian**
+- [ ] Domain and bundle ID decided
 - [ ] Apple Developer, Play Console, Expo, Supabase (staging + prod), GCP
 - [ ] `infra/` Terraform: state bucket, Artifact Registry, Cloud Run, Secret Manager, WIF for GitHub
 - [ ] API auto-deploys to Cloud Run staging from `main`
