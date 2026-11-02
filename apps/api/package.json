@@ -4,22 +4,33 @@
   "private": true,
   "description": "Calm Guardian HTTP API.",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/app.ts"
+    }
+  },
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/server.ts | pino-pretty --messageKey message",
+    "build": "esbuild src/server.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/server.cjs",
+    "start": "node --enable-source-maps dist/server.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@atproto/api": "^0.25.0",
-    "@hono/node-server": "^2.1.5",
-    "hono": "^4.13.13",
+    "@calm-guardian/shared": "*",
+    "@hono/node-server": "^2.1.6",
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.16",
+    "pino": "^10.4.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "pino-pretty": "^13.2.0",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
-    "vitest": "^5.0.4"
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
   }
 }
