@@ -1,5 +1,10 @@
 # CG-1 — Authenticate a user against Bluesky
 
+> **Superseded by [ADR-0003](../decisions/0003-connected-accounts.md) (2026-11-02).** Users now
+> sign in with a Calm Guardian Account (ADR-0002), and Bluesky is a *connected account* linked through
+> AT Protocol OAuth, not an App Password. The idea of a Platform gateway interface with in-memory
+> fakes carries over into M1. The WIP for this ticket is in `git stash` ("pre-pivot CG-1 WIP").
+
 **Type:** Story
 **Milestone:** M2 (Authentication)
 **Estimate:** 1 day
