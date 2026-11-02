@@ -18,9 +18,9 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 |---|---|---|---|---|---|
 | 1 | In-app account deletion | Apple 5.1.1(v), Google | Settings → Delete Account. Server deletes all data, revokes Platform tokens | M1 | ⬜ |
 | 2 | Revoke Sign in with Apple tokens on account deletion | Apple | Account deletion calls Apple's token revocation endpoint | M1 | ⬜ |
-| 3 | Web URL for account deletion requests | Google | Page on our domain explaining how to delete, with a request route for users without the app | M1 | ⬜ |
+| 3 | Web URL for account deletion requests | Google | `apps/web` `/delete-account`: how to delete in the app, or by email without it. Needs the real domain and support email | M1 | 🟨 |
 | 4 | Equivalent privacy-preserving login if Google sign-in is offered | Apple 4.8 | Sign in with Apple, plus email one-time code | M1 | ⬜ |
-| 5 | Privacy policy URL in the app and in the listing | Both | Website page; linked from onboarding and Settings | M7 | ⬜ |
+| 5 | Privacy policy URL in the app and in the listing | Both | `apps/web` `/privacy` (draft from the data inventory; legal review in M7); link from onboarding and Settings | M7 | 🟨 |
 | 6 | iOS privacy manifest | Apple | `ios.privacyManifests` in `app.config.ts`, kept current as SDKs are added | M0 | 🟨 |
 | 7 | Export compliance | Apple | `ios.config.usesNonExemptEncryption: false` (standard HTTPS only) | M0 | 🟨 |
 | 8 | App Privacy label / Data safety form | Both | See the data inventory below | M9 | ⬜ |
@@ -33,7 +33,7 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 | 15 | Universal Links / App Links | Both | `apple-app-site-association` and `assetlinks.json` on our domain | M1 | ⬜ |
 | 16 | Age rating / content rating | Both | Apple age rating questionnaire; IARC questionnaire in Play Console | M9 | ⬜ |
 | 17 | Target audience: adults | Google (Families policy) | Play Console target audience: 18+ | M9 | ⬜ |
-| 18 | Support URL and contact email | Both | Website support page; support email on our domain | M9 | ⬜ |
+| 18 | Support URL and contact email | Both | `apps/web` `/support`; support email on our domain (placeholder in `apps/web/src/lib/site.ts`) | M9 | 🟨 |
 | 19 | Accessibility | Both (expectation; Apple accessibility labels) | Labels, contrast, font scaling, screen reader pass | M7 | ⬜ |
 | 20 | First Android upload by hand | Google | Upload the first AAB in Play Console before using EAS Submit | M0b | ⬜ |
 | 21 | Real app icon and splash | Both | 1024×1024 icon, no transparency for iOS; Android adaptive foreground + monochrome. Current assets are Expo placeholders | M7 | ⬜ |
