@@ -15,6 +15,7 @@ export default defineConfig([
     'apps/mobile/ios/',
     'apps/mobile/android/',
     'apps/mobile/expo-env.d.ts',
+    'apps/mobile/src/uniwind-types.d.ts',
     'supabase/',
   ]),
 
@@ -23,6 +24,11 @@ export default defineConfig([
   {
     files: ['apps/mobile/**/*.{js,jsx,ts,tsx}'],
     extends: [expoConfig],
+  },
+  {
+    // The TypeScript compiler already reports unresolved imports, including the `@/` alias.
+    files: ['apps/mobile/**/*.{ts,tsx}'],
+    rules: { 'import/no-unresolved': 'off' },
   },
 
   {

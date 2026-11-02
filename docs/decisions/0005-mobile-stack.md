@@ -34,6 +34,10 @@ hid native problems until late and gave us no store pipeline.
 
 ## Consequences
 - Local builds need Xcode and Android Studio, or EAS cloud builds. The free EAS tier has a monthly quota.
+- **There must be exactly one copy of `react` and of each native module in the monorepo.** Two
+  copies break hooks or Reanimated at runtime. The root `package.json` `overrides` pin `react`,
+  `react-dom` and `react-native-worklets` to the SDK's versions. Update them at every SDK upgrade,
+  and check with `npx expo install --check` and `npm ls react`.
 - The iPad is out of scope. Apple still runs iPhone apps on iPad in compatibility mode, so layouts must not break there.
 - Bumping the SDK yearly keeps us above Google Play's target API level requirement.
 - Bundle IDs are permanent once uploaded. The production values are set once in `app.config.ts`
