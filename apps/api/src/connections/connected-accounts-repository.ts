@@ -22,8 +22,16 @@ export class ConnectedElsewhereError extends Error {
   }
 }
 
+type PlatformAccount = { platform: Platform; externalId: ExternalAccountId };
+type AccountsConnection = { accountId: AccountId; connectedAccountId: ConnectedAccountId };
+
 export type ConnectedAccountsRepository = {
   listForAccount: (accountId: AccountId) => Promise<ConnectedAccount[]>;
+  findForAccount: (details: AccountsConnection) => Promise<ConnectedAccount | undefined>;
+  /** Whether any Account has this Platform account connected. */
+  isConnected: (details: PlatformAccount) => Promise<boolean>;
+  /** The Platform stopped accepting our tokens; the user needs to sign in again. */
+  markNeedsReauth: (details: PlatformAccount) => Promise<void>;
   /**
    * Connects a Platform account, or reconnects it (new handle, back to `active`) if this Account
    * already has it. Throws `ConnectedElsewhereError` if another Account has it.
@@ -35,10 +43,7 @@ export type ConnectedAccountsRepository = {
     handle: string;
   }) => Promise<ConnectedAccount>;
   /** Removes the connection and its stored session. Does nothing if it's already gone. */
-  disconnect: (details: {
-    accountId: AccountId;
-    connectedAccountId: ConnectedAccountId;
-  }) => Promise<void>;
+  disconnect: (details: AccountsConnection) => Promise<void>;
 };
 
 /** Every query is scoped by the Account it acts for (ADR-0002). */
@@ -52,6 +57,36 @@ export function createConnectedAccountsRepository(db: Db): ConnectedAccountsRepo
         .orderBy('created_at')
         .execute();
       return rows.map(toConnectedAccount);
+    },
+
+    async findForAccount({ accountId, connectedAccountId }) {
+      const row = await db
+        .selectFrom('connected_accounts')
+        .selectAll()
+        .where('id', '=', connectedAccountId)
+        .where('account_id', '=', accountId)
+        .executeTakeFirst();
+      return row ? toConnectedAccount(row) : undefined;
+    },
+
+    async isConnected({ platform, externalId }) {
+      const row = await db
+        .selectFrom('connected_accounts')
+        .select('id')
+        .where('platform', '=', platform)
+        .where('external_id', '=', externalId)
+        .executeTakeFirst();
+      return row !== undefined;
+    },
+
+    async markNeedsReauth({ platform, externalId }) {
+      await db
+        .updateTable('connected_accounts')
+        .set({ status: 'needs_reauth', updated_at: sql`now()` })
+        .where('platform', '=', platform)
+        .where('external_id', '=', externalId)
+        .where('status', '=', 'active')
+        .execute();
     },
 
     async connect({ accountId, platform, externalId, handle }) {
