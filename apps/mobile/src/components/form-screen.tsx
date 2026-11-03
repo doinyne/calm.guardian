@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MonoLabel } from '@/components/mono-label';
 import { Text } from '@/components/ui/text';
 
 /**
@@ -9,10 +10,13 @@ import { Text } from '@/components/ui/text';
  * nothing is cut off at large text sizes, and it moves up out of the keyboard's way.
  */
 export function FormScreen({
+  step,
   title,
   description,
   children,
 }: {
+  /** A short status label above the title, e.g. "Sign in · Step 1 of 2". */
+  step: string;
   title: string;
   description: string;
   children: ReactNode;
@@ -30,6 +34,7 @@ export function FormScreen({
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
         <View className="gap-2">
+          <MonoLabel tone="primary">{step}</MonoLabel>
           <Text variant="h3">{title}</Text>
           <Text className="text-muted-foreground">{description}</Text>
         </View>

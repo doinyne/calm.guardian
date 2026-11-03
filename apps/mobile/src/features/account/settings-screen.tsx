@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAccountAuth, useAccountSession } from '@/account/account-session';
 import { ErrorMessage } from '@/components/error-message';
+import { MonoLabel } from '@/components/mono-label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,8 +73,10 @@ export function SettingsScreen() {
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <View className="gap-4">
-      <Text variant="h4">{title}</Text>
+    <View className="gap-4 rounded-xl border border-border bg-card p-5">
+      <View role="heading">
+        <MonoLabel>{title}</MonoLabel>
+      </View>
       {children}
     </View>
   );
@@ -106,7 +109,7 @@ function ConfirmAccountDeletion({
             <Text>Keep my account</Text>
           </AlertDialogCancel>
           <AlertDialogAction className="bg-destructive" onPress={onConfirm}>
-            <Text className="text-white">Delete my account</Text>
+            <Text className="text-destructive-foreground">Delete my account</Text>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -12,49 +12,28 @@
   --spacing-hairline: hairlineWidth();
 }
 
-/* Colour values must match packages/shared/src/theme-colors.ts; theme-colors.test.ts checks. */
-@layer theme {
-  :root {
-    @variant light {
-      --color-background: #f8fafa;
-      --color-foreground: #2d3435;
-      --color-card: #ffffff;
-      --color-card-foreground: #2d3435;
-      --color-popover: #ffffff;
-      --color-popover-foreground: #2d3435;
-      --color-primary: #006b63;
-      --color-primary-foreground: #e2fff9;
-      --color-secondary: #d4e6e5;
-      --color-secondary-foreground: #445554;
-      --color-muted: #eaefef;
-      --color-muted-foreground: #596061;
-      --color-accent: #81f3e5;
-      --color-accent-foreground: #005a53;
-      --color-destructive: #a83836;
-      --color-border: #dde4e4;
-      --color-input: #757c7d;
-      --color-ring: #006b63;
-    }
-
-    @variant dark {
-      --color-background: #0e1414;
-      --color-foreground: #dde4e3;
-      --color-card: #1a2120;
-      --color-card-foreground: #dde4e3;
-      --color-popover: #1a2120;
-      --color-popover-foreground: #dde4e3;
-      --color-primary: #72e4d7;
-      --color-primary-foreground: #003733;
-      --color-secondary: #2f3636;
-      --color-secondary-foreground: #d4e6e5;
-      --color-muted: #252b2b;
-      --color-muted-foreground: #bec9c7;
-      --color-accent: #00504a;
-      --color-accent-foreground: #81f3e5;
-      --color-destructive: #ffb4ab;
-      --color-border: #3f4948;
-      --color-input: #899391;
-      --color-ring: #72e4d7;
-    }
-  }
+/* Colour values must match packages/shared/src/theme-colors.ts; theme-colors.test.ts checks.
+   Dark only for launch, so this is one static palette rather than light and dark variants. */
+@theme {
+  --color-background: #0b1026;
+  --color-foreground: #e8f1ff;
+  --color-card: #171f44;
+  --color-card-foreground: #e8f1ff;
+  --color-popover: #171f44;
+  --color-popover-foreground: #e8f1ff;
+  --color-primary: #74ffed;
+  --color-primary-foreground: #0b1026;
+  --color-secondary: #222b57;
+  --color-secondary-foreground: #e8f1ff;
+  --color-muted: #1b2350;
+  --color-muted-foreground: #8a96c2;
+  --color-accent: #222b57;
+  --color-accent-foreground: #74ffed;
+  --color-destructive: #ff8a7a;
+  --color-destructive-foreground: #0b1026;
+  --color-border: #1f3b4d;
+  --color-input: #3e8389;
+  --color-ring: #74ffed;
+  --color-hope: #f49ad8;
+  --color-hope-foreground: #0b1026;
 }

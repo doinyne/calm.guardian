@@ -47,6 +47,7 @@ export function VerifyCodeScreen({ email }: { email: string }) {
 
   return (
     <FormScreen
+      step="Sign in · Step 2 of 2"
       title="Check your email"
       description={`Enter the ${SIGN_IN_CODE_LENGTH}-digit code we sent to ${email}.`}
     >

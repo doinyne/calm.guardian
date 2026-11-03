@@ -11,8 +11,8 @@ const PRODUCTION_BUNDLE_ID = 'app.calmguardian';
 const APP_NAME = 'Calm Guardian';
 const URL_SCHEME = 'calmguardian';
 
-/** Matches THEME_COLORS.{light,dark}.background in packages/shared. */
-export const SPLASH_BACKGROUND = { light: '#f8fafa', dark: '#0e1414' };
+/** Matches THEME_COLORS.background in packages/shared (app.config.test.ts checks). */
+export const SPLASH_BACKGROUND = '#0b1026';
 
 /**
  * Each variant gets its own ID, name and URL scheme, so all three can be installed side by side and
@@ -45,7 +45,8 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
     version: '0.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'automatic',
+    // Dark only for launch (ADR-0007): keyboards, alerts and system sheets match the app.
+    userInterfaceStyle: 'dark',
     runtimeVersion: { policy: 'fingerprint' },
 
     ios: {
@@ -65,7 +66,7 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
       package: bundleId,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: SPLASH_BACKGROUND.light,
+        backgroundColor: SPLASH_BACKGROUND,
       },
     },
 
@@ -77,8 +78,7 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
           image: './assets/splash-icon.png',
           imageWidth: 200,
           resizeMode: 'contain',
-          backgroundColor: SPLASH_BACKGROUND.light,
-          dark: { backgroundColor: SPLASH_BACKGROUND.dark },
+          backgroundColor: SPLASH_BACKGROUND,
         },
       ],
       // The session lives in the Keychain/Keystore. We don't use biometrics, so no Face ID prompt

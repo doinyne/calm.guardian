@@ -1,23 +1,15 @@
-import { THEME_COLORS, type ColorScheme } from '@calm-guardian/shared';
-import { DarkTheme, DefaultTheme, type Theme } from 'expo-router/react-navigation';
+import { THEME_COLORS } from '@calm-guardian/shared';
+import { DarkTheme, type Theme } from 'expo-router/react-navigation';
 
-/** Navigation chrome (headers, tab bars, screen backgrounds) in the brand colours. */
-export const NAVIGATION_THEME: Record<ColorScheme, Theme> = {
-  light: navigationTheme('light', DefaultTheme),
-  dark: navigationTheme('dark', DarkTheme),
+/** Navigation chrome (headers, tab bars, screen backgrounds) in the brand colours. Dark only. */
+export const NAVIGATION_THEME: Theme = {
+  ...DarkTheme,
+  colors: {
+    background: THEME_COLORS.background,
+    border: THEME_COLORS.border,
+    card: THEME_COLORS.background,
+    notification: THEME_COLORS.destructive,
+    primary: THEME_COLORS.primary,
+    text: THEME_COLORS.foreground,
+  },
 };
-
-function navigationTheme(scheme: ColorScheme, base: Theme): Theme {
-  const colors = THEME_COLORS[scheme];
-  return {
-    ...base,
-    colors: {
-      background: colors.background,
-      border: colors.border,
-      card: colors.card,
-      notification: colors.destructive,
-      primary: colors.primary,
-      text: colors.foreground,
-    },
-  };
-}
