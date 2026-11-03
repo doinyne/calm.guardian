@@ -81,6 +81,9 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
           dark: { backgroundColor: SPLASH_BACKGROUND.dark },
         },
       ],
+      // The session lives in the Keychain/Keystore. We don't use biometrics, so no Face ID prompt
+      // text; Android backup rules stay on so tokens never reach a cloud backup.
+      ['expo-secure-store', { faceIDPermission: false }],
     ],
 
     experiments: { typedRoutes: true },

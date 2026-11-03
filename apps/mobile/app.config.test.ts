@@ -50,6 +50,13 @@ describe('app.config', () => {
     expect(configFor('production').ios?.config?.usesNonExemptEncryption).toBe(false);
   });
 
+  it('keeps sessions out of Android backups and asks for no Face ID permission', () => {
+    expect(configFor('production').plugins).toContainEqual([
+      'expo-secure-store',
+      { faceIDPermission: false },
+    ]);
+  });
+
   it('rejects an unknown variant rather than building with the wrong bundle ID', () => {
     expect(() => configFor('staging')).toThrow(/EXPO_PUBLIC_APP_VARIANT/);
   });

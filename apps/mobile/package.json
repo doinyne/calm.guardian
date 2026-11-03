@@ -10,13 +10,16 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node scripts/generate-route-types.js && tsc --noEmit"
   },
   "dependencies": {
     "@calm-guardian/shared": "*",
     "@expo/metro-runtime": "~58.0.16",
+    "@rn-primitives/alert-dialog": "^1.5.2",
+    "@rn-primitives/label": "^1.5.2",
     "@rn-primitives/portal": "^1.5.3",
     "@rn-primitives/slot": "^1.5.2",
+    "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.105.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -26,6 +29,7 @@
     "expo-haptics": "~58.0.7",
     "expo-linking": "~58.0.15",
     "expo-router": "~58.0.29",
+    "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.12",
     "expo-status-bar": "~58.0.4",
     "expo-system-ui": "~58.0.7",

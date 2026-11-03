@@ -17,6 +17,7 @@
   "scripts": {
     "dev:api": "npm run dev -w @calm-guardian/api",
     "dev:mobile": "npm run start -w @calm-guardian/mobile",
+    "supabase:signing-key": "test -f supabase/signing_keys.json || (echo '[]' > supabase/signing_keys.json && supabase gen signing-key --algorithm ES256 --yes)",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint . --max-warnings 0",
     "test": "npm run test --workspaces --if-present",

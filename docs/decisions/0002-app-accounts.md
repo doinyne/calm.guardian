@@ -1,6 +1,6 @@
 # 0002: Accounts via Supabase Auth; the app talks only to our API
 
-**Status:** Proposed · **Date:** 2026-11-02
+**Status:** Accepted · **Date:** 2026-11-02 · **Accepted:** 2026-11-03
 
 ## Context
 Users need a Calm Guardian **Account** that is separate from any social Platform, so they can
@@ -41,8 +41,26 @@ Store rules that apply:
   Supabase queries with API calls.
 - The API is responsible for scoping every query by Account. Repository functions take `accountId`
   as a required argument.
-- Session storage on the device must be secure. SecureStore has value-size limits, so M1 must check
-  Supabase's current Expo guidance (e.g. an encrypted value in AsyncStorage with the key in SecureStore).
+- Session storage on the device must be secure. See "Implementation notes" for how.
 - Account deletion is a multi-step server operation (revoke Platform tokens, revoke Apple tokens,
   delete data, delete the auth user). It must be idempotent and tested first.
 - We depend on Supabase Auth's availability. That's acceptable at our scale.
+
+## Implementation notes (M1, email sign-in)
+
+- **Session storage.** Supabase sessions are 2–4 KB, and some iOS versions have rejected Keychain items
+  over 2 KB. Supabase's Expo recipe encrypts the session with `aes-js` (unmaintained, unauthenticated
+  AES-CTR) and keeps the ciphertext in AsyncStorage. Instead, `chunked-secure-storage.ts` splits the
+  session across Keychain/Keystore items of at most 2 KB each, with `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, so
+  tokens never move to another phone through a backup. A missing piece reads as signed out.
+- **Token verification.** The API accepts only asymmetric tokens (ES256 or RS256) for the
+  `authenticated` audience and role, with an expiry, from our project's issuer, and never anonymous
+  users. Signing keys come from JWKS, cached for 10 minutes. If the keys can't be fetched, the request
+  fails as a server error, never as "signed out". Local Supabase signs with an ES256 key too
+  (`npm run supabase:signing-key`). **M0b:** check the hosted projects use asymmetric signing keys.
+- **Revocation.** Access tokens are stateless and stay valid until they expire (1 hour), even after
+  sign-out or account deletion. That's acceptable today because our tables cascade from `auth.users`,
+  so writes for a deleted Account fail. If an endpoint ever needs instant revocation, check the token's
+  `session_id` against Supabase.
+- **Sign-out** ends the session on this device only. Supabase's default would sign the user out on
+  every device.

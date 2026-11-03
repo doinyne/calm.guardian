@@ -30,6 +30,7 @@ apps/mobile/expo-env.d.ts
 # Supabase
 supabase/.temp/
 supabase/.branches/
+supabase/signing_keys.json
 
 # Terraform
 .terraform/

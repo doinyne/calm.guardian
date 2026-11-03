@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { createApp } from '../app';
-import { captureLogs } from '../testing/log-capture';
+import { buildTestApp } from '../testing/test-app';
 import { validate } from './validation';
 
 const GuardianInviteSchema = z.object({
@@ -11,7 +10,7 @@ const GuardianInviteSchema = z.object({
 });
 
 function buildAppWithValidatedRoute() {
-  const app = createApp({ logger: captureLogs().logger, readinessChecks: [] });
+  const { app } = buildTestApp();
   app.post('/guardians', validate('json', GuardianInviteSchema), (c) =>
     c.json(c.req.valid('json'), 201),
   );
