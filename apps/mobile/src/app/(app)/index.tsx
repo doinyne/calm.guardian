@@ -1,13 +1,14 @@
 import { Link } from 'expo-router';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { CalmCore } from '@/components/calm-core';
 import { MonoLabel } from '@/components/mono-label';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
+import { ConnectedAccountsPanel } from '@/features/connections/connected-accounts-panel';
 
-// Connected accounts and the Calm controls arrive with Bluesky connect (M1) and Calm Mode (M3).
+// The Calm controls arrive with Calm Mode (M3); slice 3 of M1 gives the accounts their real design.
 export default function HomeRoute() {
   return (
     <Screen className="gap-6 pt-2">
@@ -27,6 +28,9 @@ export default function HomeRoute() {
           <Text className="text-muted-foreground">Your posts are visible as usual.</Text>
         </View>
       </View>
+      <ScrollView contentContainerClassName="pb-6">
+        <ConnectedAccountsPanel />
+      </ScrollView>
     </Screen>
   );
 }
