@@ -10,7 +10,7 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node scripts/generate-route-types.js && tsc --noEmit"
   },
   "dependencies": {
     "@calm-guardian/shared": "*",
