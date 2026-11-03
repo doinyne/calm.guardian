@@ -46,7 +46,7 @@ describe('signing in with an emailed code', () => {
     await fireEvent.changeText(await screen.findByLabelText('Sign-in code'), FakeAccountAuth.CODE);
 
     await waitFor(() => expect(screen).toHavePathname('/'));
-    expect(screen.getByRole('heading', { name: 'Calm Mode' })).toBeOnTheScreen();
+    expect(screen.getByRole('heading', { name: 'Calm Mode is off' })).toBeOnTheScreen();
   });
 
   it('says so when the code is wrong, and stays on the code step', async () => {

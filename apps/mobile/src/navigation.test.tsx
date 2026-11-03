@@ -14,7 +14,7 @@ describe('navigation', () => {
     await renderRouter(APP_ROUTES, { initialUrl: '/' });
 
     expect(screen).toHavePathname('/welcome');
-    expect(screen.getByRole('heading', { name: 'Calm Guardian' })).toBeOnTheScreen();
+    expect(screen.getByRole('heading', { name: "You're in control." })).toBeOnTheScreen();
   });
 
   it('takes a signed-in user straight into the app', async () => {
@@ -23,7 +23,7 @@ describe('navigation', () => {
     await renderRouter(APP_ROUTES, { initialUrl: '/' });
 
     expect(screen).toHavePathname('/');
-    expect(screen.getByRole('heading', { name: 'Calm Mode' })).toBeOnTheScreen();
+    expect(screen.getByRole('heading', { name: 'Calm Mode is off' })).toBeOnTheScreen();
   });
 
   it('keeps a signed-in user out of the sign-in screens', async () => {

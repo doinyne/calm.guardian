@@ -36,6 +36,7 @@ export function SignInScreen() {
 
   return (
     <FormScreen
+      step="Sign in · Step 1 of 2"
       title="What's your email?"
       description={`We'll email you a ${SIGN_IN_CODE_LENGTH}-digit code to sign in. There's no password to remember.`}
     >

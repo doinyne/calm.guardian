@@ -1,3 +1,5 @@
+import { HELPLINE_DIRECTORY_URL } from '@calm-guardian/shared';
+
 /** Site-wide facts, in one place. */
 export const SITE = {
   name: 'Calm Guardian',
@@ -21,6 +23,6 @@ export const CRISIS_LINES = [
     region: 'Elsewhere',
     name: 'Find a Helpline',
     contact: 'findahelpline.com',
-    href: 'https://findahelpline.com',
+    href: HELPLINE_DIRECTORY_URL,
   },
 ] as const;
