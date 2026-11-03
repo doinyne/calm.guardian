@@ -165,5 +165,8 @@ Run from the repo root unless noted.
 | Mobile dev build (simulator) | `npm run ios -w @calm-guardian/mobile` / `npm run android -w @calm-guardian/mobile` |
 | Website dev server (port 3001) | `npm run dev -w @calm-guardian/web` |
 | Website production build | `npm run build -w @calm-guardian/web` |
-| Local Supabase | `supabase start` / `supabase stop` |
+| Local Supabase (needs Docker running) | `supabase start` / `supabase stop` |
+| One-off local setup: ES256 signing key for local Supabase (gitignored) | `npm run supabase:signing-key` |
+| API integration tests (need local Supabase) | `npm run test:integration -w @calm-guardian/api` |
+| Local inbox for sign-in codes | http://127.0.0.1:54324 |
 | E2E smoke (needs a running dev build) | `maestro test apps/mobile/e2e` |

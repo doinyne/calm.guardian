@@ -1,4 +1,4 @@
-y# Store readiness
+# Store readiness
 
 Living checklist of what the App Store and Google Play require, and where we meet each requirement.
 **Update this in the same PR** whenever a feature collects new data, adds a sign-in method or
@@ -16,10 +16,10 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 
 | # | Requirement | Store | How we meet it | Milestone | Status |
 |---|---|---|---|---|---|
-| 1 | In-app account deletion | Apple 5.1.1(v), Google | Settings → Delete Account. Server deletes all data, revokes Platform tokens | M1 | ⬜ |
+| 1 | In-app account deletion | Apple 5.1.1(v), Google | Settings → Delete account → confirm → `DELETE /account` deletes the auth user, and our tables cascade from it. Idempotent. Revoking Platform tokens lands with Bluesky connect | M1 | 🟨 |
 | 2 | Revoke Sign in with Apple tokens on account deletion | Apple | Account deletion calls Apple's token revocation endpoint | M1 | ⬜ |
 | 3 | Web URL for account deletion requests | Google | `apps/web` `/delete-account`: how to delete in the app, or by email without it. Needs the real domain and support email | M1 | 🟨 |
-| 4 | Equivalent privacy-preserving login if Google sign-in is offered | Apple 4.8 | Sign in with Apple, plus email one-time code | M1 | ⬜ |
+| 4 | Equivalent privacy-preserving login if Google sign-in is offered | Apple 4.8 | Sign in with Apple, plus email one-time code. The email code is built; Apple and Google sign-in come together | M1 | 🟨 |
 | 5 | Privacy policy URL in the app and in the listing | Both | `apps/web` `/privacy` (draft from the data inventory; legal review in M7); link from onboarding and Settings | M7 | 🟨 |
 | 6 | iOS privacy manifest | Apple | `ios.privacyManifests` in `app.config.ts`, kept current as SDKs are added | M0 | 🟨 |
 | 7 | Export compliance | Apple | `ios.config.usesNonExemptEncryption: false` (standard HTTPS only) | M0 | 🟨 |
@@ -29,7 +29,7 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 | 11 | Sensitive data from an individual developer | Apple 5.1.1(ix) | Data minimisation, clear privacy policy, detailed review notes; fallback is a Ltd + app transfer | M9 | ⬜ |
 | 12 | Target API level | Google | Keep the Expo SDK current (yearly bump) | Ongoing | 🟨 |
 | 13 | Closed test: at least 12 testers for 14 continuous days | Google (new personal accounts) | Recruit testers during M5–M7 | M8 | ⬜ |
-| 14 | App completeness and demo account | Apple 2.1, Google | Demo Account plus a **dedicated, seeded test Bluesky account** in review notes | M9 | ⬜ |
+| 14 | App completeness and demo account | Apple 2.1, Google | Demo Account plus a **dedicated, seeded test Bluesky account** in review notes. ⚠️ Reviewers can't receive our sign-in emails, so before M9 the demo Account needs a way in that works for them (e.g. a review mailbox whose login we share, or a fixed code for one review address, set on the server) | M9 | ⬜ |
 | 15 | Universal Links / App Links | Both | `apple-app-site-association` and `assetlinks.json` on our domain | M1 | ⬜ |
 | 16 | Age rating / content rating | Both | Apple age rating questionnaire; IARC questionnaire in Play Console | M9 | ⬜ |
 | 17 | Target audience: adults | Google (Families policy) | Play Console target audience: 18+ | M9 | ⬜ |
@@ -49,6 +49,7 @@ user's identity.
 |---|---|---|---|---|---|
 | Account email | Sign-in, account emails | Yes | No (processors only: Supabase) | Supabase Auth | M1 |
 | Apple / Google user ID | Sign-in | Yes | No | Supabase Auth | M1 |
+| Sign-in metadata: IP address and device user agent | Session security and abuse prevention | Yes | No (processor: Supabase) | Supabase Auth sessions and audit log | M1 |
 | Connected account ID (Bluesky DID) and handle | Act on the user's posts | Yes | No | Postgres | M1 |
 | Connected account OAuth tokens | Act on the user's posts | Yes | No | Postgres (encrypted) | M1 |
 | User content: archived posts and images | Backup and Restore | Yes | No | Postgres + Supabase Storage | M2 |

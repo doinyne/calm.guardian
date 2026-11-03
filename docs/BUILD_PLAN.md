@@ -87,13 +87,15 @@ self-reviewed PR.
   (the first AAB is uploaded by hand)
 
 ### M1: Accounts and connections
-- [ ] Supabase Auth: Sign in with Apple, Google, email one-time code; session stored securely on device
-- [ ] Auth gate, session restore on launch, sign out
-- [ ] API verifies Supabase JWTs (JWKS); tests for missing / expired / forged tokens
+- [x] Supabase Auth: email one-time code; session stored securely on device
+- [ ] Supabase Auth: Sign in with Apple and Google
+- [x] Auth gate, session restore on launch, sign out
+- [x] API verifies Supabase JWTs (JWKS); tests for missing / expired / forged tokens
 - [ ] `connected_accounts` + encrypted OAuth session store (migrations)
 - [ ] Bluesky connect via AT Protocol OAuth (confidential client); disconnect; reconnect when `needs_reauth`
 - [ ] Connecting the same DID twice upserts; one DID ↔ one Account
-- [ ] **In-app account deletion** (revokes Bluesky + Apple tokens, warns about archived posts) and a web deletion page
+- [x] **In-app account deletion**: deletes the auth user and everything that cascades from it; idempotent
+- [ ] Account deletion also revokes Bluesky + Apple tokens and warns about archived posts; web deletion page on the domain
 - [ ] Universal Links / App Links files served from the domain
 
 ### M2: Archive core ⭐ (TDD, fakes first)
