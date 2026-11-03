@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 
 import { useAccountAuth, useAccountSession } from '@/account/account-session';
 import { ErrorMessage } from '@/components/error-message';
+import { HeaderScrollView } from '@/components/header-scroll-view';
 import { MonoLabel } from '@/components/mono-label';
 import {
   AlertDialog,
@@ -25,7 +25,6 @@ import { deleteAccountOnServer } from './delete-account';
 export function SettingsScreen() {
   const auth = useAccountAuth();
   const session = useAccountSession();
-  const insets = useSafeAreaInsets();
 
   const signOut = useMutation({ mutationFn: () => auth.signOutThisDevice() });
   const deleteAccount = useMutation({
@@ -39,11 +38,7 @@ export function SettingsScreen() {
   const isBusy = signOut.isPending || deleteAccount.isPending;
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="gap-10 px-6 pt-6"
-      contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-    >
+    <HeaderScrollView className="flex-1 bg-background" contentContainerClassName="gap-10 px-6 pt-6">
       <Section title="Account">
         {email ? <Text>Signed in as {email}</Text> : null}
         <Button variant="outline" size="lg" onPress={() => signOut.mutate()} disabled={isBusy}>
@@ -67,7 +62,7 @@ export function SettingsScreen() {
           </ErrorMessage>
         ) : null}
       </Section>
-    </ScrollView>
+    </HeaderScrollView>
   );
 }
 

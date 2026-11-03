@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardAvoidingView, Platform, View } from 'react-native';
 
+import { HeaderScrollView } from '@/components/header-scroll-view';
 import { MonoLabel } from '@/components/mono-label';
 import { Text } from '@/components/ui/text';
 
@@ -21,17 +21,14 @@ export function FormScreen({
   description: string;
   children: ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-background"
     >
-      <ScrollView
+      <HeaderScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerClassName="grow gap-6 px-6 pt-2"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
       >
         <View className="gap-2">
           <MonoLabel tone="primary">{step}</MonoLabel>
@@ -39,7 +36,7 @@ export function FormScreen({
           <Text className="text-muted-foreground">{description}</Text>
         </View>
         {children}
-      </ScrollView>
+      </HeaderScrollView>
     </KeyboardAvoidingView>
   );
 }
