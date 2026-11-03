@@ -15,6 +15,37 @@ export class FakeConnectedAccounts implements ConnectedAccountsRepository {
     return Promise.resolve(this.accounts.filter((account) => account.accountId === accountId));
   }
 
+  findForAccount({
+    accountId,
+    connectedAccountId,
+  }: Parameters<ConnectedAccountsRepository['findForAccount']>[0]) {
+    return Promise.resolve(
+      this.accounts.find(
+        (account) => account.id === connectedAccountId && account.accountId === accountId,
+      ),
+    );
+  }
+
+  isConnected({ platform, externalId }: Parameters<ConnectedAccountsRepository['isConnected']>[0]) {
+    return Promise.resolve(
+      this.accounts.some(
+        (account) => account.platform === platform && account.externalId === externalId,
+      ),
+    );
+  }
+
+  markNeedsReauth({
+    platform,
+    externalId,
+  }: Parameters<ConnectedAccountsRepository['markNeedsReauth']>[0]) {
+    for (const account of this.accounts) {
+      if (account.platform === platform && account.externalId === externalId) {
+        account.status = 'needs_reauth';
+      }
+    }
+    return Promise.resolve();
+  }
+
   connect({
     accountId,
     platform,

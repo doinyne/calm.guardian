@@ -153,6 +153,42 @@ describe('connected accounts repository (local Supabase)', () => {
     expect(await storedSessionCount(did)).toBe('0');
   });
 
+  it("finds an Account's own connected account, and nobody else's", async () => {
+    const [owner, someoneElse] = [await newAccount(), await newAccount()];
+    const connected = await connectBluesky(owner);
+
+    await expect(
+      repository.findForAccount({ accountId: owner, connectedAccountId: connected.id }),
+    ).resolves.toEqual(connected);
+    await expect(
+      repository.findForAccount({ accountId: someoneElse, connectedAccountId: connected.id }),
+    ).resolves.toBeUndefined();
+  });
+
+  it('marks a connection as needing a fresh sign-in when the Platform stops accepting it', async () => {
+    const did = newDid();
+    await connectBluesky(accountId, did);
+
+    await repository.markNeedsReauth({ platform: 'bluesky', externalId: did });
+
+    const marked = (await repository.listForAccount(accountId)).find(
+      ({ externalId }) => externalId === did,
+    );
+    expect(marked?.status).toBe('needs_reauth');
+  });
+
+  it('says whether any Account has a Platform account connected', async () => {
+    const did = newDid();
+
+    await expect(repository.isConnected({ platform: 'bluesky', externalId: did })).resolves.toBe(
+      false,
+    );
+    await connectBluesky(accountId, did);
+    await expect(repository.isConnected({ platform: 'bluesky', externalId: did })).resolves.toBe(
+      true,
+    );
+  });
+
   it.each(['anon', 'authenticated'])(
     'gives the app’s %s database role no access at all',
     async (role) => {

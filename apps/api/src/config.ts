@@ -15,6 +15,13 @@ export type SupabaseConfig = {
   jwksUrl: URL;
 };
 
+export type BlueskyConfig = {
+  /** Where Bluesky sends people after they approve us: our callback route. */
+  redirectUrl: URL;
+  /** Where our callback sends people next: back into the app. */
+  appReturnUrl: URL;
+};
+
 export type Config = {
   port: number;
   logLevel: LogLevel;
@@ -23,6 +30,7 @@ export type Config = {
   databaseUrl: string;
   /** Newest first: the first key encrypts, all of them decrypt. */
   tokenEncryptionKeys: EncryptionKey[];
+  bluesky: BlueskyConfig;
 };
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
@@ -64,6 +72,18 @@ const EncryptionKeysSchema = z.string().transform((value, ctx): EncryptionKey[] 
   return keys;
 });
 
+/**
+ * Bluesky's development ("loopback") client only allows http://127.0.0.1 or [::1] redirects. Requiring
+ * one also stops that client reaching a deployed API, where we need a confidential client (M0b).
+ */
+const isLoopbackRedirect = (url: string) => {
+  const { protocol, hostname } = new URL(url);
+  return protocol === 'http:' && (hostname === '127.0.0.1' || hostname === '[::1]');
+};
+
+/** The app's own scheme, e.g. calmguardian-dev://. A web URL could hand the code to someone else. */
+const isAppLink = (url: string) => !/^https?:$/.test(new URL(url).protocol);
+
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
@@ -73,6 +93,18 @@ const EnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   TOKEN_ENCRYPTION_KEYS: EncryptionKeysSchema,
+  BLUESKY_REDIRECT_URL: z
+    .url()
+    .refine(
+      isLoopbackRedirect,
+      'must be http://127.0.0.1:<port>/… while we use the development client',
+    ),
+  APP_CONNECT_RETURN_URL: z
+    .url()
+    .refine(
+      isAppLink,
+      "must use the app's own link scheme, e.g. calmguardian-dev://connect/bluesky",
+    ),
 });
 
 export class ConfigError extends Error {
@@ -100,6 +132,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     SUPABASE_SECRET_KEY,
     DATABASE_URL,
     TOKEN_ENCRYPTION_KEYS,
+    BLUESKY_REDIRECT_URL,
+    APP_CONNECT_RETURN_URL,
   } = result.data;
   return {
     port: PORT,
@@ -107,6 +141,10 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     supabase: supabaseConfig(SUPABASE_URL, SUPABASE_SECRET_KEY),
     databaseUrl: DATABASE_URL,
     tokenEncryptionKeys: TOKEN_ENCRYPTION_KEYS,
+    bluesky: {
+      redirectUrl: new URL(BLUESKY_REDIRECT_URL),
+      appReturnUrl: new URL(APP_CONNECT_RETURN_URL),
+    },
   };
 }
 
