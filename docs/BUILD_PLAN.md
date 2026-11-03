@@ -93,10 +93,12 @@ self-reviewed PR.
 - [x] Auth gate, session restore on launch, sign out
 - [x] API verifies Supabase JWTs (JWKS); tests for missing / expired / forged tokens
 - [x] `connected_accounts` + encrypted OAuth session store (migrations), `GET /connections`
-- [ ] Bluesky connect via AT Protocol OAuth (confidential client); disconnect; reconnect when `needs_reauth`
-- [ ] Connecting the same DID twice upserts; one DID ↔ one Account
+- [x] Bluesky connect via AT Protocol OAuth (development client), bound to the Account that started it; disconnect; `needs_reauth` when Bluesky stops honouring a session
+- [ ] Switch to the confidential client on our domain (needs the domain, M0b)
+- [x] Connecting the same DID twice upserts; one DID ↔ one Account
 - [x] **In-app account deletion**: deletes the auth user and everything that cascades from it; idempotent
-- [ ] Account deletion also revokes Bluesky + Apple tokens and warns about archived posts; web deletion page on the domain
+- [x] Account deletion revokes Bluesky tokens first
+- [ ] Account deletion also revokes Apple tokens and warns about archived posts; web deletion page on the domain
 - [ ] Universal Links / App Links files served from the domain
 
 ### M2: Archive core ⭐ (TDD, fakes first)

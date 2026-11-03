@@ -69,3 +69,25 @@ never assumes Bluesky's delete-and-recreate model. The `connected_accounts` tabl
 - **No tokens left behind:** sessions are keyed by DID, so a `SECURITY DEFINER` trigger deletes a
   Bluesky account's session whenever its `connected_accounts` row is deleted, including when Supabase
   Auth deletes the user.
+
+## Implementation notes (M1, slice 2: connecting Bluesky)
+- **Development client for now.** The API uses Bluesky's "loopback" client
+  (`buildAtprotoLoopbackClientMetadata`, redirect `http://127.0.0.1:3000/connections/bluesky/callback`).
+  It's a public client, so Bluesky limits sessions to about two weeks, and it only works on a
+  developer's machine. Config refuses any non-loopback redirect, so it can't be deployed by
+  accident. **Before beta (M0b):** switch to the confidential client: client metadata and JWKS on our
+  domain, a private key in Secret Manager, `private_key_jwt`.
+- **The connection is bound to whoever started it.** Bluesky's callback connects nothing. It holds the
+  sign-in under a single-use code (hashed, encrypted, 10 minutes) and redirects to the app. The app,
+  signed in, completes it, and only the Account that started can. This stops OAuth "login CSRF", where
+  someone gets a victim to approve *their* link and captures the victim's Bluesky account.
+- **Scope:** `atproto repo:app.bsky.feed.post?action=create&action=delete blob:*/*`, which is enough to
+  hide and restore posts and their images. Bluesky accepted it on 2026-11-03; reading is public.
+- **Token refresh** goes through a Postgres *transaction* advisory lock (`requestLock`), so instances
+  never refresh the same session at once. It's a transaction lock because Supabase's transaction
+  pooler may move statements between connections.
+- **Ending a connection:** disconnecting and account deletion revoke at Bluesky first. A failed revoke
+  is logged, and our copy is deleted anyway. When Bluesky stops honouring a session (refresh failed,
+  revoked elsewhere), the connection becomes `needs_reauth`.
+- **Known gap:** a sign-in abandoned after Bluesky's redirect, never completed in the app, leaves an
+  unused session for that DID. Clean these up with the job runner (M2).
