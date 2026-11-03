@@ -55,3 +55,17 @@ never assumes Bluesky's delete-and-recreate model. The `connected_accounts` tabl
 - One DID can be connected to only one Account.
 - Other Platforms each need a feasibility spike. Their APIs may not support hiding or deleting
   personal posts at all, in which case the capability flags make that explicit in the UI.
+
+## Implementation notes (M1, slice 1: storage)
+- **Tables** (`supabase/migrations/20261103165922_connected_accounts.sql`): `connected_accounts`,
+  `atproto_oauth_states` and `atproto_oauth_sessions`. An Account can connect many accounts, and a DID
+  belongs to one Account (unique `platform` + `external_id`). The repository reconnects an Account's
+  own account and refuses anyone else's.
+- **Encryption at rest:** app-level AES-256-GCM (`apps/api/src/crypto/secret-box.ts`), with a keyring
+  in `TOKEN_ENCRYPTION_KEYS` (the first key seals, all open). Each value is bound to its table and key,
+  so it can't be moved to another row. Remote keys live in Secret Manager (M0b). This is "envelope"
+  encryption only in the loose sense: there's no KMS-wrapped data key yet. Revisit with KMS if the
+  threat model needs it.
+- **No tokens left behind:** sessions are keyed by DID, so a `SECURITY DEFINER` trigger deletes a
+  Bluesky account's session whenever its `connected_accounts` row is deleted, including when Supabase
+  Auth deletes the user.

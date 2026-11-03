@@ -55,6 +55,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0008](decisions/0008-store-positioning.md) | Personal accounts, free, not a medical app | Proposed |
 | [0009](decisions/0009-typescript-6.md) | Pin TypeScript 6.0 and ESLint 9 until the toolchain catches up | Proposed |
 | [0010](decisions/0010-website.md) | Public website in `apps/web`: Next.js, KokonutUI, Motion | Proposed |
+| [0012](decisions/0012-database-access.md) | Kysely + `pg`; schema in Supabase SQL migrations | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
@@ -91,7 +92,7 @@ self-reviewed PR.
 - [ ] Supabase Auth: Sign in with Apple and Google
 - [x] Auth gate, session restore on launch, sign out
 - [x] API verifies Supabase JWTs (JWKS); tests for missing / expired / forged tokens
-- [ ] `connected_accounts` + encrypted OAuth session store (migrations)
+- [x] `connected_accounts` + encrypted OAuth session store (migrations), `GET /connections`
 - [ ] Bluesky connect via AT Protocol OAuth (confidential client); disconnect; reconnect when `needs_reauth`
 - [ ] Connecting the same DID twice upserts; one DID ↔ one Account
 - [x] **In-app account deletion**: deletes the auth user and everything that cascades from it; idempotent

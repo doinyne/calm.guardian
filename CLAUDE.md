@@ -168,5 +168,7 @@ Run from the repo root unless noted.
 | Local Supabase (needs Docker running) | `supabase start` / `supabase stop` |
 | One-off local setup: ES256 signing key for local Supabase (gitignored) | `npm run supabase:signing-key` |
 | API integration tests (need local Supabase) | `npm run test:integration -w @calm-guardian/api` |
+| New database migration | `supabase migration new <name>` (then write SQL in `supabase/migrations/`) |
+| Apply migrations to local Supabase | `supabase migration up --local` |
 | Local inbox for sign-in codes | http://127.0.0.1:54324 |
 | E2E smoke (needs a running dev build) | `maestro test apps/mobile/e2e` |

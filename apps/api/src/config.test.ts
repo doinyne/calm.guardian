@@ -11,9 +11,14 @@ function errorThrownBy(action: () => unknown): Error {
   throw new Error('Expected the action to throw an Error');
 }
 
+const KEY_A = Buffer.alloc(32, 1).toString('base64');
+const KEY_B = Buffer.alloc(32, 2).toString('base64');
+
 const REQUIRED_ENV = {
   SUPABASE_URL: 'https://project-ref.supabase.co',
   SUPABASE_SECRET_KEY: 'sb_secret_test',
+  DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+  TOKEN_ENCRYPTION_KEYS: `k1:${KEY_A}`,
 };
 
 describe('loadConfig', () => {
@@ -46,6 +51,37 @@ describe('loadConfig', () => {
       loadConfig({ ...REQUIRED_ENV, SUPABASE_URL: 'http://project-ref.supabase.co' }),
     );
     expect(error.message).toContain('SUPABASE_URL');
+  });
+
+  it('reads the encryption keys in order, newest first', () => {
+    const { tokenEncryptionKeys } = loadConfig({
+      ...REQUIRED_ENV,
+      TOKEN_ENCRYPTION_KEYS: `k2:${KEY_B},k1:${KEY_A}`,
+    });
+
+    expect(tokenEncryptionKeys.map(({ id }) => id)).toEqual(['k2', 'k1']);
+    expect(tokenEncryptionKeys[0]?.key.equals(Buffer.from(KEY_B, 'base64'))).toBe(true);
+  });
+
+  it.each([
+    ['a key that is not 32 bytes', `k1:${Buffer.alloc(16).toString('base64')}`],
+    ['a key with no name', KEY_A],
+    ['the same name twice', `k1:${KEY_A},k1:${KEY_B}`],
+  ])('rejects %s without echoing the keys', (_case, value) => {
+    const error = errorThrownBy(() =>
+      loadConfig({ ...REQUIRED_ENV, TOKEN_ENCRYPTION_KEYS: value }),
+    );
+
+    expect(error.message).toContain('TOKEN_ENCRYPTION_KEYS');
+    expect(error.message).not.toContain(KEY_A);
+  });
+
+  it('requires a Postgres URL for the database', () => {
+    const error = errorThrownBy(() =>
+      loadConfig({ ...REQUIRED_ENV, DATABASE_URL: 'https://example.com' }),
+    );
+
+    expect(error.message).toContain('DATABASE_URL');
   });
 
   it('fails fast when the Supabase settings are missing', () => {
