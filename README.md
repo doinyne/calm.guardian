@@ -12,7 +12,7 @@ Simulator. You don't need any cloud accounts.
 - connect and disconnect a Bluesky account
 - sign out and delete your account
 
-Calm Mode itself is still being built (see [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md)).
+Calm Mode itself is still being built.
 
 ### 1. Install the tools (once)
 
