@@ -71,12 +71,24 @@ describe('connected accounts panel', () => {
     expect(screen.getByText('Bluesky · Connected')).toBeOnTheScreen();
   });
 
-  it('says when nothing is connected yet', async () => {
+  it('says when nothing is connected yet, and offers to connect Bluesky', async () => {
     stubApi([]);
 
     await renderPanel();
 
     expect(await screen.findByText('No accounts connected yet.')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Connect Bluesky' })).toBeOnTheScreen();
+  });
+
+  it('offers to connect another account once one is connected', async () => {
+    stubApi([ME]);
+
+    await renderPanel();
+
+    expect(
+      await screen.findByRole('button', { name: 'Connect another account' }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Connect Bluesky' })).toBeNull();
   });
 
   it('disconnects an account and refreshes the list', async () => {

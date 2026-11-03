@@ -21,9 +21,16 @@ describe('encrypted OAuth stores (local Supabase)', () => {
   const db = createDatabase(supabase.databaseUrl);
   const secretBox = createSecretBox(supabase.tokenEncryptionKeys);
   const sessions = createSessionStore<FakeSession>({ db, secretBox });
-  const newKey = () => `did:plc:store${randomUUID().replaceAll('-', '')}`;
+  const createdKeys: string[] = [];
+  const newKey = () => {
+    const key = `did:plc:store${randomUUID().replaceAll('-', '')}`;
+    createdKeys.push(key);
+    return key;
+  };
 
   afterAll(async () => {
+    await db.deleteFrom('atproto_oauth_sessions').where('key', 'in', createdKeys).execute();
+    await db.deleteFrom('atproto_oauth_states').where('expires_at', '<', new Date()).execute();
     await db.destroy();
   });
 

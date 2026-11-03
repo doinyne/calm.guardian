@@ -25,6 +25,8 @@ describe('pending connections (local Supabase)', () => {
   });
 
   afterAll(async () => {
+    // Codes are stored hashed, so clear what these tests left by its (past) expiry instead.
+    await db.deleteFrom('atproto_oauth_states').where('expires_at', '<', new Date()).execute();
     await db.destroy();
   });
 

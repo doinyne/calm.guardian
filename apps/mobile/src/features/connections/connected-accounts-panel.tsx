@@ -39,6 +39,10 @@ export function ConnectedAccountsPanel() {
   const outcome = connect.error
     ? OUTCOME_MESSAGE.failed
     : connect.data && OUTCOME_MESSAGE[connect.data];
+  // Several accounts can be connected, even on one Platform. Once one is, connecting more is a
+  // quieter, secondary action.
+  const hasConnections = (connections.data?.length ?? 0) > 0;
+  const connectLabel = hasConnections ? 'Connect another account' : 'Connect Bluesky';
 
   return (
     <View className="gap-4 rounded-xl border border-border bg-card p-5">
@@ -76,8 +80,13 @@ export function ConnectedAccountsPanel() {
         <ErrorMessage>We couldn&apos;t disconnect that account. Please try again.</ErrorMessage>
       ) : null}
 
-      <Button size="lg" onPress={() => connect.mutate()} disabled={connect.isPending}>
-        <Text>{connect.isPending ? 'Connecting…' : 'Connect Bluesky'}</Text>
+      <Button
+        size="lg"
+        variant={hasConnections ? 'outline' : 'default'}
+        onPress={() => connect.mutate()}
+        disabled={connect.isPending}
+      >
+        <Text>{connect.isPending ? 'Connecting…' : connectLabel}</Text>
       </Button>
       {outcome?.isProblem ? <ErrorMessage>{outcome.text}</ErrorMessage> : null}
       {outcome && !outcome.isProblem ? (
