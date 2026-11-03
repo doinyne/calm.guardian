@@ -38,6 +38,10 @@ below is about keeping the user in control.
   change takes effect immediately. A Guardian can also step down.
 - A Guardian-started session goes through exactly the same backup-before-delete core as any other
   (product rule 1). There is no separate path.
+- **A Guardian can turn Calm Mode on for an account only when none of that account's archived posts
+  are waiting in Review.** Restore, Keep hidden and Delete for good all count as dealing with a post.
+  So after a session, the Guardian can't turn it on again until the user has been through Review, at
+  their own pace. The user can always turn Calm Mode on themselves. *Dean's rule, 2026-11-03.*
 
 **Guardians sign in.** A Guardian acts from their own Calm Guardian Account in the same app, signed in
 with the email address that accepted the invitation. A link in an email is not enough, because it
@@ -53,9 +57,10 @@ could be forwarded. *Default chosen by Claude; Dean can still choose a web-only 
 - The Calm Mode state machine and screens work per connected account, with a summary for all of them.
 - App Review notes must explain the Guardian feature and its safeguards. Reviewers will ask how it
   can't be used against someone.
-
-## Open question
-- **Repeat activations.** If the user turns off a session a Guardian started, can that Guardian turn
-  it on again straight away? Each round deletes and re-creates posts, and restored posts show a new
-  date, so a repeat loop could be harmful. I recommend a cooldown (e.g. 24 hours) before that
-  Guardian can turn it on again for that account. Decide before M6.
+- **Trade-offs of the Review rule:**
+  - While posts are waiting in Review, a Guardian can't step in, even if the user is struggling
+    again. That's accepted: the user can still turn it on, and the rule stops sessions stacking up
+    faster than the user can respond.
+  - Once Review is clear, a Guardian could turn it on again straight away. The defence is that the user
+    is told every time and can remove the Guardian or withdraw permission in one step. When the user
+    turns off a session a Guardian started, the app offers "Change what <Guardian> can do?".

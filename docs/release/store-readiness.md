@@ -81,4 +81,5 @@ identifiers, analytics or tracking. Keep it that way unless Dean decides otherwi
 > **Guardians:** a user can invite trusted contacts. For each connected account, the user decides
 > whether Guardians may turn Calm Mode on for it (off by default). A Guardian can only turn it on,
 > never off; they never see posts; the user is told immediately and can turn it off or remove the
-> Guardian at any time.
+> Guardian at any time. A Guardian can't turn it on again until the user has gone through the posts
+> from last time in Review.

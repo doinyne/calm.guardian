@@ -135,8 +135,9 @@ self-reviewed PR.
 - [ ] Guardians sign in with their own Account (ADR-0011) and see only the accounts they may protect
 - [ ] Per connected account, "Guardians can turn this on" (**off by default**)
 - [ ] A Guardian can only turn Calm Mode **on**, for allowed accounts; the user is told at once and can always turn it off
-- [ ] Tests: Guardian without permission, removed Guardian, Guardian turning it off or reading the Archive are all refused
-- [ ] Decide the repeat-activation cooldown (ADR-0011 open question)
+- [ ] A Guardian can turn Calm Mode on for an account only when none of its posts are waiting in Review
+- [ ] Turning off a Guardian-started session offers "Change what <Guardian> can do?"
+- [ ] Tests: Guardian without permission, removed Guardian, Guardian with posts waiting in Review, and Guardian turning it off or reading the Archive are all refused
 - [ ] Max guardians defined once in `packages/shared`, enforced on the server
 - [ ] Notification sent **only after activation succeeds**; escaped HTML + plain text; no posts, no reason
 - [ ] Guardian can opt out from any email
