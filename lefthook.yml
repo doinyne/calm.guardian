@@ -1,7 +1,7 @@
 pre-commit:
   jobs:
     - name: format
-      glob: '*.{js,mjs,cjs,ts,tsx,json,yml,yaml}'
+      glob: '*.{js,mjs,cjs,ts,tsx,json,yml,yaml,html,css}'
       run: npx prettier --write {staged_files}
       stage_fixed: true
 
