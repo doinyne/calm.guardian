@@ -6,7 +6,11 @@ import { createSupabaseAuthAdmin } from './accounts/supabase-auth-admin';
 import { createApp } from './app';
 import { createAccessTokenVerifier } from './auth/access-token';
 import { loadConfig } from './config';
+import { createAtprotoBlueskyOAuth } from './connections/atproto-bluesky-oauth';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
+import { createConnectionRemoval } from './connections/connection-removal';
+import { createPendingConnections } from './connections/pending-connections';
+import { createSecretBox } from './crypto/secret-box';
 import { createDatabase, databaseReadinessCheck } from './db/database';
 import { createLogger } from './logger';
 
@@ -18,6 +22,31 @@ const SIGNING_KEYS_CACHE_MS = 10 * 60 * 1000;
 const config = loadConfig(process.env);
 const logger = createLogger({ level: config.logLevel });
 const db = createDatabase(config.databaseUrl);
+const secretBox = createSecretBox(config.tokenEncryptionKeys);
+const connectedAccounts = createConnectedAccountsRepository(db);
+
+const bluesky = createAtprotoBlueskyOAuth({
+  db,
+  secretBox,
+  redirectUrl: config.bluesky.redirectUrl,
+  onSessionEnded: (did) => {
+    connectedAccounts
+      .markNeedsReauth({ platform: 'bluesky', externalId: did })
+      .catch((error: unknown) => {
+        logger.error(
+          { err: error },
+          'Could not mark a Bluesky connection as needing a new sign-in',
+        );
+      });
+  },
+});
+
+const connectionRemoval = createConnectionRemoval({
+  connectedAccounts,
+  revokeTokens: { bluesky: (did) => bluesky.revoke(did) },
+  logger,
+});
+
 const app = createApp({
   logger,
   readinessChecks: [databaseReadinessCheck(db)],
@@ -25,8 +54,17 @@ const app = createApp({
     keys: createRemoteJWKSet(config.supabase.jwksUrl, { cacheMaxAge: SIGNING_KEYS_CACHE_MS }),
     issuer: config.supabase.authIssuer,
   }),
-  deleteAccount: createAccountDeletion({ authAdmin: createSupabaseAuthAdmin(config.supabase) }),
-  connectedAccounts: createConnectedAccountsRepository(db),
+  deleteAccount: createAccountDeletion({
+    revokeAllConnections: connectionRemoval.revokeAll,
+    authAdmin: createSupabaseAuthAdmin(config.supabase),
+  }),
+  connections: {
+    connectedAccounts,
+    bluesky,
+    pendingConnections: createPendingConnections({ db, secretBox }),
+    disconnect: connectionRemoval.disconnect,
+    appReturnUrl: config.bluesky.appReturnUrl,
+  },
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {

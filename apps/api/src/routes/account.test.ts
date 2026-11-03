@@ -25,7 +25,10 @@ describe('DELETE /account', () => {
         keys: supabase.keys,
         issuer: TEST_AUTH_ISSUER,
       }),
-      deleteAccount: createAccountDeletion({ authAdmin }),
+      deleteAccount: createAccountDeletion({
+        revokeAllConnections: () => Promise.resolve(),
+        authAdmin,
+      }),
     });
     return { ...built, authAdmin };
   }
