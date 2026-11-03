@@ -6,7 +6,7 @@ import { loadConfig } from '../config';
 
 /** Settings and an admin client for the local Supabase stack, for integration tests only. */
 export function connectToLocalSupabase() {
-  const { supabase: config } = loadConfig(process.env);
+  const { supabase: config, databaseUrl, tokenEncryptionKeys } = loadConfig(process.env);
   const admin = createClient(config.url, config.secretKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
@@ -24,5 +24,5 @@ export function connectToLocalSupabase() {
     return { id: data.user.id, email, password };
   }
 
-  return { config, admin, createTestUser };
+  return { config, databaseUrl, tokenEncryptionKeys, admin, createTestUser };
 }
