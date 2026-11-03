@@ -4,6 +4,7 @@ import { z } from 'zod';
 export const API_ERROR_CODES = [
   'bad_request',
   'validation_failed',
+  'unauthorized',
   'not_found',
   'payload_too_large',
   'internal_error',
