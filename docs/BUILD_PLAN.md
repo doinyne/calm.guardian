@@ -51,7 +51,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0004](decisions/0004-hosting.md) | Cloud Run (europe-west2) + Supabase (London), via Terraform | Proposed |
 | [0005](decisions/0005-mobile-stack.md) | Expo SDK 58, dev builds, EAS, iPhone + Android phones only | Proposed |
 | [0006](decisions/0006-testing.md) | Vitest, jest-expo + RNTL, Maestro | Proposed |
-| [0007](decisions/0007-styling.md) | Uniwind + React Native Reusables + Reanimated; shared brand colours | Proposed |
+| [0007](decisions/0007-styling.md) | Uniwind + React Native Reusables + Reanimated; mission control look, dark only | Accepted |
 | [0008](decisions/0008-store-positioning.md) | Personal accounts, free, not a medical app | Proposed |
 | [0009](decisions/0009-typescript-6.md) | Pin TypeScript 6.0 and ESLint 9 until the toolchain catches up | Proposed |
 | [0010](decisions/0010-website.md) | Public website in `apps/web`: Next.js, KokonutUI, Motion | Proposed |
