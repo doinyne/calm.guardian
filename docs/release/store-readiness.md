@@ -56,6 +56,8 @@ user's identity.
 | User content: archived posts and images | Backup and Restore | Yes | No | Postgres + Supabase Storage | M2 |
 | Calm session times | Calm Mode state, history | Yes | No | Postgres | M3 |
 | Guardian name and email (third party) | Notify guardians | Yes | Emailed to the guardian; processor: email provider | Postgres | M6 |
+| Guardian's own Account and which connected accounts they may protect | Let Guardians turn on Calm Mode (ADR-0011) | Yes | No | Supabase Auth + Postgres | M6 |
+| Who started each Calm session (the user or a Guardian) | Tell the user who turned Calm Mode on | Yes | No | Postgres | M3/M6 |
 | Crash diagnostics | Fix crashes | No (PII scrubbed) | Processor: crash reporting | Crash reporting vendor | M7 |
 
 **Not collected:** diagnoses, symptoms, the reason for Calm Mode, location, contacts, advertising
@@ -75,3 +77,8 @@ identifiers, analytics or tracking. Keep it that way unless Dean decides otherwi
 > Bluesky. Open **Review** to restore them.
 >
 > Bluesky is connected through Bluesky's official OAuth screen; we never see the user's Bluesky password.
+>
+> **Guardians:** a user can invite trusted contacts. For each connected account, the user decides
+> whether Guardians may turn Calm Mode on for it (off by default). A Guardian can only turn it on,
+> never off; they never see posts; the user is told immediately and can turn it off or remove the
+> Guardian at any time.

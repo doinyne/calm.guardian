@@ -21,9 +21,10 @@ others), and anyone who has ever posted something they regretted.
    timestamp, and the user is told this up front.
 
 **Main user journey:**
-Sign up (Apple / Google / email code) → **connect Bluesky** → (optional) invite guardians →
-**activate Calm Mode** (preview what will be hidden, choose a window) → posts hidden, guardians
-emailed → posts made during Calm Mode are swept too → **deactivate** → **Review** each archived
+Sign up (Apple / Google / email code) → **connect accounts** (as many as you like) → (optional)
+invite Guardians and choose which accounts they may protect → **activate Calm Mode** for one account
+or all of them, or a Guardian does it for the allowed ones (preview what will be hidden, choose a
+window) → posts hidden, Guardians emailed → posts made during Calm Mode are swept too → **deactivate** → **Review** each archived
 post: *Restore* / *Keep hidden* / *Delete for good*, or *Restore all*.
 
 **Accounts and Platforms:** users have a Calm Guardian **Account**. Social networks are
@@ -46,7 +47,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | ADR | Decision | Status |
 |---|---|---|
 | [0001](decisions/0001-monorepo.md) | npm workspaces monorepo | Proposed |
-| [0002](decisions/0002-app-accounts.md) | Supabase Auth for Accounts; the app talks only to our API | Proposed |
+| [0002](decisions/0002-app-accounts.md) | Supabase Auth for Accounts; the app talks only to our API | Accepted |
 | [0003](decisions/0003-connected-accounts.md) | Platform adapters; Bluesky via AT Protocol OAuth on the server | Proposed |
 | [0004](decisions/0004-hosting.md) | Cloud Run (europe-west2) + Supabase (London), via Terraform | Proposed |
 | [0005](decisions/0005-mobile-stack.md) | Expo SDK 58, dev builds, EAS, iPhone + Android phones only | Proposed |
@@ -55,6 +56,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0008](decisions/0008-store-positioning.md) | Personal accounts, free, not a medical app | Proposed |
 | [0009](decisions/0009-typescript-6.md) | Pin TypeScript 6.0 and ESLint 9 until the toolchain catches up | Proposed |
 | [0010](decisions/0010-website.md) | Public website in `apps/web`: Next.js, KokonutUI, Motion | Proposed |
+| [0011](decisions/0011-guardian-calm-mode.md) | Calm Mode per connected account; Guardians may turn it on for accounts the user allows | Accepted |
 | [0012](decisions/0012-database-access.md) | Kysely + `pg`; schema in Supabase SQL migrations | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
@@ -111,7 +113,9 @@ self-reviewed PR.
 - [ ] Honest result: "X hidden, Y could not be hidden (still visible)"
 
 ### M3: Calm Mode
+- [ ] Calm Mode **per connected account**, plus "turn on / off for all"; each Calm session records who started it
 - [ ] Activate (with a "preview what will be hidden" step, replacing v1's Feed tab), status, deactivate
+- [ ] Honest per-account results: an account that needs signing in again is reported as not protected
 - [ ] Progress UI, double-tap prevented, Calm Mode indicator on every screen
 - [ ] Status survives an app restart; deactivate finds the active session server-side
 
@@ -127,6 +131,12 @@ self-reviewed PR.
 
 ### M6: Guardians
 - [ ] Invite flow: the guardian **accepts by email** before they're notified (anti-abuse, GDPR consent)
+- [ ] The user adds and removes Guardians at any time; a Guardian can step down
+- [ ] Guardians sign in with their own Account (ADR-0011) and see only the accounts they may protect
+- [ ] Per connected account, "Guardians can turn this on" (**off by default**)
+- [ ] A Guardian can only turn Calm Mode **on**, for allowed accounts; the user is told at once and can always turn it off
+- [ ] Tests: Guardian without permission, removed Guardian, Guardian turning it off or reading the Archive are all refused
+- [ ] Decide the repeat-activation cooldown (ADR-0011 open question)
 - [ ] Max guardians defined once in `packages/shared`, enforced on the server
 - [ ] Notification sent **only after activation succeeds**; escaped HTML + plain text; no posts, no reason
 - [ ] Guardian can opt out from any email
