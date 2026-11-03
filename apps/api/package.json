@@ -21,7 +21,9 @@
     "@calm-guardian/shared": "*",
     "@hono/node-server": "^2.1.6",
     "@hono/zod-validator": "^0.9.1",
+    "@supabase/supabase-js": "^2.118.0",
     "hono": "^4.13.16",
+    "jose": "^6.2.15",
     "pino": "^10.4.0",
     "zod": "^4.6.7"
   },
