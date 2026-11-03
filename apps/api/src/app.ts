@@ -5,11 +5,13 @@ import { secureHeaders } from 'hono/secure-headers';
 
 import type { DeleteAccount } from './accounts/delete-account';
 import type { VerifyAccessToken } from './auth/access-token';
+import type { ConnectedAccountsRepository } from './connections/connected-accounts-repository';
 import { createErrorHandler, errorResponse, handleNotFound } from './http/errors';
 import { requestLogger } from './http/request-logger';
 import { requireAccount } from './http/require-account';
 import type { Logger } from './logger';
 import { accountRoutes } from './routes/account';
+import { connectionsRoutes } from './routes/connections';
 import { healthRoutes, type ReadinessCheck } from './routes/health';
 
 /** Clients only send small commands; post content is backed up server-side, never uploaded. */
@@ -20,6 +22,7 @@ export type AppDependencies = {
   readinessChecks: ReadinessCheck[];
   verifyAccessToken: VerifyAccessToken;
   deleteAccount: DeleteAccount;
+  connectedAccounts: ConnectedAccountsRepository;
 };
 
 /**
@@ -31,6 +34,7 @@ export function createApp({
   readinessChecks,
   verifyAccessToken,
   deleteAccount,
+  connectedAccounts,
 }: AppDependencies) {
   const signedIn = requireAccount({ verifyAccessToken, logger });
 
@@ -49,7 +53,8 @@ export function createApp({
       }),
     )
     .route('/', healthRoutes({ readinessChecks, logger }))
-    .route('/', accountRoutes({ requireAccount: signedIn, deleteAccount }));
+    .route('/', accountRoutes({ requireAccount: signedIn, deleteAccount }))
+    .route('/', connectionsRoutes({ requireAccount: signedIn, connectedAccounts }));
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);
