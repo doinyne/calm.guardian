@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createApp, type AppDependencies } from './app';
-import { captureLogs } from './testing/log-capture';
-
-function buildApp(overrides: Partial<AppDependencies> = {}) {
-  const logs = captureLogs();
-  const app = createApp({ logger: logs.logger, readinessChecks: [], ...overrides });
-  return { app, logs };
-}
+import { buildTestApp as buildApp } from './testing/test-app';
 
 describe('GET /health', () => {
   it('reports ok', async () => {
