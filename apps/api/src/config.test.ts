@@ -19,6 +19,8 @@ const REQUIRED_ENV = {
   SUPABASE_SECRET_KEY: 'sb_secret_test',
   DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
   TOKEN_ENCRYPTION_KEYS: `k1:${KEY_A}`,
+  BLUESKY_REDIRECT_URL: 'http://127.0.0.1:3000/connections/bluesky/callback',
+  APP_CONNECT_RETURN_URL: 'calmguardian-dev://connect/bluesky',
 };
 
 describe('loadConfig', () => {
@@ -82,6 +84,35 @@ describe('loadConfig', () => {
     );
 
     expect(error.message).toContain('DATABASE_URL');
+  });
+
+  it('reads where Bluesky sends people back to, and where the API returns them to the app', () => {
+    const { bluesky } = loadConfig(REQUIRED_ENV);
+
+    expect(bluesky.redirectUrl.href).toBe('http://127.0.0.1:3000/connections/bluesky/callback');
+    expect(bluesky.appReturnUrl.href).toBe('calmguardian-dev://connect/bluesky');
+  });
+
+  it.each([
+    'https://api.calmguardian.app/connections/bluesky/callback',
+    'http://localhost:3000/connections/bluesky/callback',
+  ])(
+    'accepts only a 127.0.0.1 Bluesky redirect while we use the development client, not %s',
+    (redirect) => {
+      const error = errorThrownBy(() =>
+        loadConfig({ ...REQUIRED_ENV, BLUESKY_REDIRECT_URL: redirect }),
+      );
+
+      expect(error.message).toContain('BLUESKY_REDIRECT_URL');
+    },
+  );
+
+  it('returns people to the app by its own link scheme, never a web page', () => {
+    const error = errorThrownBy(() =>
+      loadConfig({ ...REQUIRED_ENV, APP_CONNECT_RETURN_URL: 'https://evil.example/steal' }),
+    );
+
+    expect(error.message).toContain('APP_CONNECT_RETURN_URL');
   });
 
   it('fails fast when the Supabase settings are missing', () => {

@@ -19,6 +19,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@atproto/api": "^0.30.0",
+    "@atproto/oauth-client-node": "^0.5.13",
     "@calm-guardian/shared": "*",
     "@hono/node-server": "^2.1.6",
     "@hono/zod-validator": "^0.9.1",
