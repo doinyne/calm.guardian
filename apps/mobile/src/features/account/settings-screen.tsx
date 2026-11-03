@@ -106,7 +106,7 @@ function ConfirmAccountDeletion({
             <Text>Keep my account</Text>
           </AlertDialogCancel>
           <AlertDialogAction className="bg-destructive" onPress={onConfirm}>
-            <Text className="text-white">Delete my account</Text>
+            <Text className="text-destructive-foreground">Delete my account</Text>
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

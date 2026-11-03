@@ -7,7 +7,7 @@ import { ThemeProvider } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { useUniwind } from 'uniwind';
+import { Uniwind } from 'uniwind';
 
 import { accountAuth } from '@/account/account-auth-client';
 import { AccountSessionProvider, useAccountSession } from '@/account/account-session';
@@ -20,6 +20,9 @@ export { ErrorBoundary } from 'expo-router';
 // sees the welcome screen flash past.
 void SplashScreen.preventAutoHideAsync();
 
+// Dark only for launch (ADR-0007), whatever the phone's own setting, so `dark:` styles always apply.
+Uniwind.setTheme('dark');
+
 export default function RootLayout() {
   return (
     <AccountSessionProvider auth={accountAuth}>
@@ -31,8 +34,6 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { theme } = useUniwind();
-  const colorScheme = theme === 'dark' ? 'dark' : 'light';
   const session = useAccountSession();
   const isSignedIn = session.status === 'signed-in';
 
@@ -46,8 +47,8 @@ function RootNavigator() {
   }, [session.status]);
 
   return (
-    <ThemeProvider value={NAVIGATION_THEME[colorScheme]}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+    <ThemeProvider value={NAVIGATION_THEME}>
+      <StatusBar style="light" />
       {/* Each group says where to send people it turns away. Without that, a signed-out
           user opening the app at "/" gets an unmatched route instead of the welcome screen. */}
       <Stack screenOptions={{ headerShown: false }}>

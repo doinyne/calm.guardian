@@ -27,11 +27,12 @@ describe('app.config', () => {
     expect(Object.keys(VARIANT_SUFFIXES).sort()).toEqual([...APP_VARIANTS].sort());
   });
 
-  it('uses the brand background colours for the splash screen', () => {
-    expect(SPLASH_BACKGROUND).toEqual({
-      light: THEME_COLORS.light.background,
-      dark: THEME_COLORS.dark.background,
-    });
+  it('uses the brand background colour for the splash screen', () => {
+    expect(SPLASH_BACKGROUND).toBe(THEME_COLORS.background);
+  });
+
+  it('is dark only, so system screens match the app', () => {
+    expect(configFor('production').userInterfaceStyle).toBe('dark');
   });
 
   it('uses the permanent production bundle ID only for production builds', () => {

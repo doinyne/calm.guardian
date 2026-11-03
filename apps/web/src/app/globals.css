@@ -2,8 +2,8 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
-/* Follow the visitor's system setting: no theme toggle, no script. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Dark only for launch, like the app: `dark:` utilities always apply. */
+@custom-variant dark (&:where(:root, :root *));
 
 @theme inline {
   --font-heading: var(--font-sans);
@@ -23,6 +23,9 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-hope: var(--hope);
+  --color-hope-foreground: var(--hope-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -35,48 +38,29 @@
 
 /* Colour values must match packages/shared/src/theme-colors.ts; theme-colors.test.ts checks. */
 :root {
+  color-scheme: dark;
   --radius: 0.75rem;
-  --background: #f8fafa;
-  --foreground: #2d3435;
-  --card: #ffffff;
-  --card-foreground: #2d3435;
-  --popover: #ffffff;
-  --popover-foreground: #2d3435;
-  --primary: #006b63;
-  --primary-foreground: #e2fff9;
-  --secondary: #d4e6e5;
-  --secondary-foreground: #445554;
-  --muted: #eaefef;
-  --muted-foreground: #596061;
-  --accent: #81f3e5;
-  --accent-foreground: #005a53;
-  --destructive: #a83836;
-  --border: #dde4e4;
-  --input: #757c7d;
-  --ring: #006b63;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0e1414;
-    --foreground: #dde4e3;
-    --card: #1a2120;
-    --card-foreground: #dde4e3;
-    --popover: #1a2120;
-    --popover-foreground: #dde4e3;
-    --primary: #72e4d7;
-    --primary-foreground: #003733;
-    --secondary: #2f3636;
-    --secondary-foreground: #d4e6e5;
-    --muted: #252b2b;
-    --muted-foreground: #bec9c7;
-    --accent: #00504a;
-    --accent-foreground: #81f3e5;
-    --destructive: #ffb4ab;
-    --border: #3f4948;
-    --input: #899391;
-    --ring: #72e4d7;
-  }
+  --background: #0b1026;
+  --foreground: #e8f1ff;
+  --card: #171f44;
+  --card-foreground: #e8f1ff;
+  --popover: #171f44;
+  --popover-foreground: #e8f1ff;
+  --primary: #74ffed;
+  --primary-foreground: #0b1026;
+  --secondary: #222b57;
+  --secondary-foreground: #e8f1ff;
+  --muted: #1b2350;
+  --muted-foreground: #8a96c2;
+  --accent: #222b57;
+  --accent-foreground: #74ffed;
+  --destructive: #ff8a7a;
+  --destructive-foreground: #0b1026;
+  --border: #1f3b4d;
+  --input: #3e8389;
+  --ring: #74ffed;
+  --hope: #f49ad8;
+  --hope-foreground: #0b1026;
 }
 
 @layer base {
