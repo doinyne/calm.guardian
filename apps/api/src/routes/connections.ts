@@ -7,7 +7,7 @@ import {
   ConnectedElsewhereError,
   type ConnectedAccountsRepository,
 } from '../connections/connected-accounts-repository';
-import type { Disconnect } from '../connections/connection-removal';
+import { ConnectionHasHiddenPostsError, type Disconnect } from '../connections/connection-removal';
 import type { PendingConnections } from '../connections/pending-connections';
 import { errorResponse } from '../http/errors';
 import type { RequireAccount } from '../http/require-account';
@@ -136,14 +136,26 @@ export function connectionsRoutes({
         requireAccount,
         validate('param', ConnectionParamsSchema),
         async (c) => {
-          await disconnect({
-            accountId: c.var.accountId,
-            connectedAccountId: c.req.valid('param').id,
-          });
+          try {
+            await disconnect({
+              accountId: c.var.accountId,
+              connectedAccountId: c.req.valid('param').id,
+            });
+          } catch (error) {
+            if (!(error instanceof ConnectionHasHiddenPostsError)) throw error;
+            return errorResponse(c, 409, {
+              code: 'connection_has_hidden_posts',
+              message: `This account has ${hiddenPostsPhrase(error.hiddenPosts)}. Restore them, or delete them for good, before disconnecting it.`,
+            });
+          }
           return c.body(null, 204);
         },
       )
   );
+}
+
+function hiddenPostsPhrase(count: number) {
+  return count === 1 ? '1 hidden post' : `${count} hidden posts`;
 }
 
 /** What the app sees. The Platform's own ID stays on the server: the app has no use for it. */

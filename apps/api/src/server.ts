@@ -7,6 +7,7 @@ import { createApp } from './app';
 import { createAccessTokenVerifier } from './auth/access-token';
 import { loadConfig } from './config';
 import { createAtprotoBlueskyOAuth } from './connections/atproto-bluesky-oauth';
+import { createArchiveRepository } from './calm/archive-repository';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
 import { createConnectionRemoval } from './connections/connection-removal';
 import { createPendingConnections } from './connections/pending-connections';
@@ -24,6 +25,7 @@ const logger = createLogger({ level: config.logLevel });
 const db = createDatabase(config.databaseUrl);
 const secretBox = createSecretBox(config.tokenEncryptionKeys);
 const connectedAccounts = createConnectedAccountsRepository(db);
+const archive = createArchiveRepository({ db, secretBox });
 
 const bluesky = createAtprotoBlueskyOAuth({
   db,
@@ -44,6 +46,7 @@ const bluesky = createAtprotoBlueskyOAuth({
 const connectionRemoval = createConnectionRemoval({
   connectedAccounts,
   revokeTokens: { bluesky: (did) => bluesky.revoke(did) },
+  countHiddenPosts: archive.countHiddenForConnectedAccount,
   logger,
 });
 

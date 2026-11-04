@@ -27,7 +27,10 @@ describe('connecting Bluesky', () => {
   function setUp() {
     const bluesky = new FakeBlueskyOAuth();
     const connectedAccounts = new FakeConnectedAccounts();
+    const hiddenPosts = new Map<string, number>();
     const { app, logs } = buildTestApp({
+      countHiddenPosts: (connectedAccountId) =>
+        Promise.resolve(hiddenPosts.get(connectedAccountId) ?? 0),
       verifyAccessToken: createAccessTokenVerifier({
         keys: supabase.keys,
         issuer: TEST_AUTH_ISSUER,
@@ -74,6 +77,7 @@ describe('connecting Bluesky', () => {
       logs,
       bluesky,
       connectedAccounts,
+      hiddenPosts,
       signedInAs,
       blueskyRedirectsBack,
       approvedSignIn,
@@ -296,6 +300,26 @@ describe('connecting Bluesky', () => {
 
       expect(response.status).toBe(204);
       expect(await setup.connectedAccounts.listForAccount(me)).toEqual([]);
+    });
+
+    it('refuses while the account has hidden posts, and keeps everything as it was', async () => {
+      const setup = setUp();
+      const me = newAccountId();
+      const account = await connected(setup, me);
+      setup.hiddenPosts.set(account.id, 3);
+
+      const response = await disconnect(setup, me, account.id);
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: {
+          code: 'connection_has_hidden_posts',
+          message:
+            'This account has 3 hidden posts. Restore them, or delete them for good, before disconnecting it.',
+        },
+      });
+      expect(setup.bluesky.revoked).toEqual([]);
+      expect(await setup.connectedAccounts.listForAccount(me)).toHaveLength(1);
     });
 
     it('is safe to repeat', async () => {

@@ -2,7 +2,7 @@ import { createApp, type AppDependencies } from '../app';
 import { AccessTokenRejectedError } from '../auth/access-token';
 import type { BlueskyOAuth } from '../connections/bluesky-oauth';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
-import { createConnectionRemoval } from '../connections/connection-removal';
+import { createConnectionRemoval, type CountHiddenPosts } from '../connections/connection-removal';
 import type { PendingConnections } from '../connections/pending-connections';
 import { FakeBlueskyOAuth } from './fake-bluesky-oauth';
 import { FakeConnectedAccounts } from './fake-connected-accounts';
@@ -15,23 +15,26 @@ type TestAppOptions = Partial<Omit<AppDependencies, 'logger' | 'connections'>> &
   connectedAccounts?: ConnectedAccountsRepository;
   bluesky?: BlueskyOAuth;
   pendingConnections?: PendingConnections;
+  countHiddenPosts?: CountHiddenPosts;
 };
 
 /**
  * The real app with harmless defaults: no readiness checks, every access token rejected, account
- * deletion doing nothing, no connected accounts and a fake Bluesky. Override only what a test is
+ * deletion doing nothing, no connected accounts or hidden posts, and a fake Bluesky. Override only what a test is
  * about.
  */
 export function buildTestApp({
   connectedAccounts = new FakeConnectedAccounts(),
   bluesky = new FakeBlueskyOAuth(),
   pendingConnections = new FakePendingConnections(),
+  countHiddenPosts = () => Promise.resolve(0),
   ...overrides
 }: TestAppOptions = {}) {
   const logs = captureLogs();
   const { disconnect } = createConnectionRemoval({
     connectedAccounts,
     revokeTokens: { bluesky: (did) => bluesky.revoke(did) },
+    countHiddenPosts,
     logger: logs.logger,
   });
   const app = createApp({
