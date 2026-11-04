@@ -22,6 +22,7 @@
     "@atproto/api": "^0.30.0",
     "@atproto/lexicon": "^0.7.18",
     "@atproto/oauth-client-node": "^0.5.13",
+    "@atproto/xrpc": "^0.8.16",
     "@calm-guardian/shared": "*",
     "@hono/node-server": "^2.1.6",
     "@hono/zod-validator": "^0.9.1",

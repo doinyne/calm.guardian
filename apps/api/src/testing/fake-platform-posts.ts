@@ -1,11 +1,12 @@
 import { isInCalmPeriod } from '@calm-guardian/shared';
 
-import type {
-  MediaRef,
-  PlatformPost,
-  PlatformPosts,
-  PostsPage,
-  PostUri,
+import {
+  PlatformRateLimitedError,
+  type MediaRef,
+  type PlatformPost,
+  type PlatformPosts,
+  type PostsPage,
+  type PostUri,
 } from '../calm/platform-posts';
 import type { ConnectedAccountId } from '../connections/connected-account';
 
@@ -42,6 +43,7 @@ export class FakePlatformPosts implements PlatformPosts {
   private readonly posts = new Map<ConnectedAccountId, PlatformPost[]>();
   private readonly undeletable = new Set<PostUri>();
   private readonly unfetchable = new Set<string>();
+  private rateLimitedUntil: Date | undefined;
   private listingFails = false;
 
   constructor(
@@ -61,6 +63,11 @@ export class FakePlatformPosts implements PlatformPosts {
 
   failToDelete(uri: PostUri) {
     this.undeletable.add(uri);
+  }
+
+  /** The next delete is refused with "slow down until `retryAt`". */
+  rateLimitNextDelete(retryAt: Date) {
+    this.rateLimitedUntil = retryAt;
   }
 
   failToFetchMedia(cid: string) {
@@ -98,6 +105,11 @@ export class FakePlatformPosts implements PlatformPosts {
   }
 
   deletePost({ connectedAccount, post }: Parameters<PlatformPosts['deletePost']>[0]) {
+    if (this.rateLimitedUntil) {
+      const retryAt = this.rateLimitedUntil;
+      this.rateLimitedUntil = undefined;
+      return Promise.reject(new PlatformRateLimitedError(retryAt));
+    }
     if (this.undeletable.has(post.uri)) return Promise.reject(new Error('Delete refused'));
 
     this.posts.set(

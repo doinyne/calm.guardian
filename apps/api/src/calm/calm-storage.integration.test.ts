@@ -123,6 +123,51 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
       expect(next.id).not.toBe(failed.id);
     });
 
+    it('can be claimed by only one worker at a time, even when several race', async () => {
+      const connected = await connectBluesky();
+      const session = await openSession(connected);
+      const until = new Date(NOW.getTime() + 60_000);
+
+      const claims = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          calmSessions.claim({ calmSessionId: session.id, until, now: NOW }),
+        ),
+      );
+
+      expect(claims.filter(Boolean)).toHaveLength(1);
+    });
+
+    it("can be claimed again once a worker's claim runs out, or is released", async () => {
+      const connected = await connectBluesky();
+      const session = await openSession(connected);
+      const claim = (now: Date) =>
+        calmSessions.claim({
+          calmSessionId: session.id,
+          until: new Date(now.getTime() + 60_000),
+          now,
+        });
+
+      await claim(NOW);
+      const afterExpiry = await claim(new Date(NOW.getTime() + 61_000));
+      await calmSessions.release(session.id);
+      const afterRelease = await claim(NOW);
+
+      expect([afterExpiry, afterRelease]).toEqual([true, true]);
+    });
+
+    it('remember where the next run carries on', async () => {
+      const connected = await connectBluesky();
+      const session = await openSession(connected);
+
+      await calmSessions.saveProgress({ calmSessionId: session.id, resumeCursor: '3kabc' });
+
+      expect(await calmSessions.find(session.id)).toMatchObject({
+        accountId,
+        resumeCursor: '3kabc',
+        failure: null,
+      });
+    });
+
     it('refuse to become active twice', async () => {
       const connected = await connectBluesky();
       const session = await openSession(connected);

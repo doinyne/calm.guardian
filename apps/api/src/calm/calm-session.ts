@@ -31,15 +31,20 @@ export function isOpen(state: CalmSessionState): boolean {
   return state === 'activating' || state === 'active';
 }
 
-export type CalmSessionFailure = 'could-not-read-posts' | 'backup-failed';
+export const CALM_SESSION_FAILURES = ['could-not-read-posts', 'backup-failed'] as const;
+export type CalmSessionFailure = (typeof CALM_SESSION_FAILURES)[number];
 
 /** One activation-to-deactivation period for one connected account (ADR-0011). */
 export type CalmSession = {
   id: CalmSessionId;
+  accountId: AccountId;
   connectedAccountId: ConnectedAccountId;
   state: CalmSessionState;
   period: CalmPeriod;
   startedAt: Date;
+  failure: CalmSessionFailure | null;
+  /** Where the next run carries on listing posts. `null`: from the newest. */
+  resumeCursor: string | null;
 };
 
 /** Calm sessions (the repository's port). */
@@ -54,6 +59,18 @@ export interface CalmSessions {
     period: CalmPeriod;
     startedAt: Date;
   }): Promise<CalmSession>;
+
+  find(calmSessionId: CalmSessionId): Promise<CalmSession | undefined>;
+
+  saveProgress(input: { calmSessionId: CalmSessionId; resumeCursor: string | null }): Promise<void>;
+
+  /**
+   * Claims the session for one worker until `until`, so two never work on it at once. Fails (false)
+   * while another worker's claim hasn't expired. A crashed worker's claim simply runs out.
+   */
+  claim(input: { calmSessionId: CalmSessionId; until: Date; now: Date }): Promise<boolean>;
+
+  release(calmSessionId: CalmSessionId): Promise<void>;
 
   markActive(input: { calmSessionId: CalmSessionId; activatedAt: Date }): Promise<void>;
 

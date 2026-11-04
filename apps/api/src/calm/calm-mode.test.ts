@@ -8,7 +8,8 @@ import { FakeCalmSessions } from '../testing/fake-calm-sessions';
 import { FakeConnectedAccounts } from '../testing/fake-connected-accounts';
 import { aPost, FakePlatformPosts } from '../testing/fake-platform-posts';
 import { captureLogs } from '../testing/log-capture';
-import { ConnectedAccountNotFoundError, createCalmMode } from './calm-mode';
+import type { CalmSessionId } from './calm-session';
+import { ConnectedAccountNotFoundError, createCalmMode, type ActivationResult } from './calm-mode';
 
 const NOW = new Date('2026-11-04T12:00:00.000Z');
 const LAST_7_DAYS = presetCalmPeriod('last-7-days', NOW);
@@ -298,6 +299,113 @@ describe('when something goes wrong', () => {
     expect(archive.all()).toHaveLength(3);
     expect(platform.visibleUris(account.id)).toEqual([]);
     expect(calmSessions.all()).toHaveLength(1);
+  });
+});
+
+describe('running in the background, a slice at a time (ADR-0015)', () => {
+  /** Continues the Calm session until it's no longer in progress, like the job runner. */
+  async function runUntilSettled(
+    calmMode: ReturnType<typeof setUp>['calmMode'],
+    calmSessionId: CalmSessionId,
+    deadline?: Date,
+  ) {
+    const results: ActivationResult[] = [];
+    for (let run = 0; run < 20; run += 1) {
+      const result = await calmMode.continueActivation({
+        calmSessionId,
+        ...(deadline ? { deadline } : {}),
+      });
+      results.push(result);
+      if (result.outcome !== 'in-progress' && result.outcome !== 'waiting') return results;
+    }
+    throw new Error('Never settled');
+  }
+
+  async function started(setup: ReturnType<typeof setUp>, accountId = ME) {
+    const account = await setup.connect('dean', accountId);
+    const start = await setup.calmMode.start({
+      accountId,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+    if (start.outcome !== 'started') throw new Error(`Expected to start, got ${start.outcome}`);
+    return { account, calmSessionId: start.calmSessionId };
+  }
+
+  it('stops at its deadline, always after some progress, and the next run carries on', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await started(setup);
+    setup.platform.publish(account.id, ...recentPosts(3));
+
+    const results = await runUntilSettled(setup.calmMode, calmSessionId, NOW);
+
+    expect(results).toEqual([
+      { outcome: 'in-progress', calmSessionId, hidden: 1 },
+      { outcome: 'in-progress', calmSessionId, hidden: 2 },
+      { outcome: 'active', calmSessionId, hidden: 3, stillVisible: 0 },
+    ]);
+  });
+
+  it("isn't held up by a post that won't delete: it's tried again once, at the end", async () => {
+    const setup = setUp({ pageSize: 2 });
+    const { account, calmSessionId } = await started(setup);
+    const [stuck, ...others] = recentPosts(5);
+    if (!stuck) throw new Error('expected posts');
+    setup.platform.publish(account.id, stuck, ...others);
+    setup.platform.failToDelete(stuck.uri);
+
+    const results = await runUntilSettled(setup.calmMode, calmSessionId, NOW);
+
+    expect(results.at(-1)).toEqual({
+      outcome: 'active',
+      calmSessionId,
+      hidden: 4,
+      stillVisible: 1,
+    });
+    expect(setup.platform.visibleUris(account.id)).toEqual([stuck.uri]);
+  });
+
+  it('waits when the Platform asks it to slow down, then carries on', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await started(setup);
+    setup.platform.publish(account.id, ...recentPosts(3));
+    const resetAt = new Date('2026-11-04T13:00:00.000Z');
+    setup.platform.rateLimitNextDelete(resetAt);
+
+    const waiting = await setup.calmMode.continueActivation({ calmSessionId });
+    const finished = await setup.calmMode.continueActivation({ calmSessionId });
+
+    expect(waiting).toEqual({ outcome: 'waiting', calmSessionId, hidden: 0, until: resetAt });
+    expect(setup.calmSessions.all()[0]?.state).toBe('active');
+    expect(finished).toMatchObject({ outcome: 'active', hidden: 3, stillVisible: 0 });
+    expect(setup.platform.visibleUris(account.id)).toEqual([]);
+  });
+
+  it('leaves a session alone once it is on', async () => {
+    const setup = setUp();
+    const { calmSessionId } = await started(setup);
+    await setup.calmMode.continueActivation({ calmSessionId });
+
+    expect(await setup.calmMode.continueActivation({ calmSessionId })).toEqual({
+      outcome: 'already-active',
+      calmSessionId,
+    });
+  });
+
+  it('pauses, keeping the session open, when the user needs to sign in to the Platform again', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await started(setup);
+    setup.platform.publish(account.id, ...recentPosts(1));
+    await setup.connectedAccounts.markNeedsReauth({
+      platform: 'bluesky',
+      externalId: account.externalId,
+    });
+
+    const result = await setup.calmMode.continueActivation({ calmSessionId });
+
+    expect(result).toEqual({ outcome: 'needs-sign-in' });
+    expect(setup.calmSessions.all()[0]?.state).toBe('activating');
+    expect(setup.platform.visibleUris(account.id)).toHaveLength(1);
   });
 });
 
