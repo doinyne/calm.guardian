@@ -59,7 +59,9 @@ asked. A rejected store submission or a lost post costs us far more than a quest
 1. **Never delete a post from a platform unless its backup is confirmed stored.** No exceptions.
 2. **Every operation is retry-safe (idempotent).** Restoring twice must not create duplicate posts.
    Activating twice must not create two Calm sessions.
-3. **Guardians never see post content or the reason for Calm Mode.**
+3. **Guardians never see post content or the reason for Calm Mode.** A Guardian can only *turn
+   Calm Mode on*, only for connected accounts the user has allowed, and the user is told at once and
+   can always turn it off (ADR-0011).
 4. **Secrets never go in git or in the app bundle.** Connected-account tokens stay server-side, are
    encrypted at rest, and are never logged. App session tokens live in secure device storage.
 5. **The server is the source of truth** for Calm Mode state. The client never sends the server
@@ -76,13 +78,17 @@ asked. A rejected store submission or a lost post costs us far more than a quest
 - **Account**: a Calm Guardian account (our own sign-in).
 - **Platform**: a social network we integrate with (Bluesky today).
 - **Connected account**: a user's account on a Platform, linked to their Account.
-- **Calm Mode**: the protected state. (v1 mixed up "Sanctuary Mode", "Guardian Mode" and
+- **Calm Mode**: the protected state of a connected account. "Turn on for all" applies it to every
+  connected account. (v1 mixed up "Sanctuary Mode", "Guardian Mode" and
   `guardian_status = 'paused'`. Don't repeat that.)
-- **Calm session**: one activation-to-deactivation period.
+- **Calm session**: one activation-to-deactivation period for one connected account, started by the
+  user or by a Guardian.
 - **Archive**: backed-up posts that are currently hidden. **Review** is the screen for them.
 - **Sweep**: backing up and hiding posts made *during* an active Calm session.
 - **Restore**: re-creating an archived post on its Platform.
-- **Guardian**: a trusted contact who has accepted an invitation and is notified when Calm Mode starts.
+- **Guardian**: a trusted contact who has accepted an invitation. They are told when Calm Mode starts,
+  and can turn it on for the connected accounts the user allows. The user chooses and changes their
+  Guardians at any time.
 
 ---
 
