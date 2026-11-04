@@ -60,6 +60,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0012](decisions/0012-database-access.md) | Kysely + `pg`; schema in Supabase SQL migrations | Accepted |
 | [0013](decisions/0013-archive-storage.md) | Archive content encrypted; no disconnect while posts are hidden | Accepted |
 | [0014](decisions/0014-archive-media-in-postgres.md) | Archived files in Postgres, encrypted, stored and deleted with their post | Accepted |
+| [0015](decisions/0015-job-runner.md) | Background jobs: Cloud Tasks + Scheduler behind a `JobQueue` port; leases; slices; rate-limit waits | Proposed |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
