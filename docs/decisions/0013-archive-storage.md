@@ -45,8 +45,9 @@ holds the only copy**. Two questions follow:
 - **Key rotation now covers the Archive too.** The `TOKEN_ENCRYPTION_KEYS` keyring already supports
   rotation. Losing the key loses every hidden post, so in production it lives in Secret Manager with
   a backup procedure (M0b).
-- **Images aren't covered yet.** They'll be copied to Supabase Storage in the Bluesky adapter slice,
-  and need the same decision (encrypt before upload, or rely on Storage's encryption).
+- **Images are encrypted too** (Dean, 2026-11-04: "everything should be encrypted"). When the Bluesky
+  adapter slice copies images to Supabase Storage, the API seals each one before upload, bound to its
+  post, so Storage only ever holds ciphertext.
 - **The app has to explain the refusal.** Disconnect should show the count and lead the user to Review
   (M5).
 - **Other data in this slice:** at most one open Calm session per connected account, enforced by a
