@@ -7,11 +7,16 @@ import { createApp } from './app';
 import { createAccessTokenVerifier } from './auth/access-token';
 import { loadConfig } from './config';
 import { createAtprotoBlueskyOAuth } from './connections/atproto-bluesky-oauth';
+import { createBlueskyPosts } from './bluesky/bluesky-posts';
+import { createActivationJob } from './calm/activation-job';
 import { createArchiveRepository } from './calm/archive-repository';
+import { createCalmMode } from './calm/calm-mode';
+import { createCalmSessionsRepository } from './calm/calm-sessions-repository';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
 import { createConnectionRemoval } from './connections/connection-removal';
 import { createPendingConnections } from './connections/pending-connections';
 import { createSecretBox } from './crypto/secret-box';
+import { createInProcessJobQueue } from './jobs/in-process-job-queue';
 import { createDatabase, databaseReadinessCheck } from './db/database';
 import { createLogger } from './logger';
 
@@ -50,6 +55,31 @@ const connectionRemoval = createConnectionRemoval({
   logger,
 });
 
+const now = () => new Date();
+const calmSessions = createCalmSessionsRepository(db);
+const calmMode = createCalmMode({
+  connectedAccounts,
+  platformPosts: createBlueskyPosts({ repoFor: bluesky.repoFor, logger }),
+  archive,
+  calmSessions,
+  now,
+  logger,
+});
+
+// Local and single-instance for now; Cloud Tasks replaces it when we deploy (ADR-0015, M0b).
+const jobs: { runActivation?: ReturnType<typeof createActivationJob> } = {};
+const jobQueue = createInProcessJobQueue({
+  handlers: () => ({
+    'activate-calm-mode': (payload) =>
+      jobs.runActivation
+        ? jobs.runActivation(payload)
+        : Promise.reject(new Error('Job handlers are not ready')),
+  }),
+  logger,
+  now,
+});
+jobs.runActivation = createActivationJob({ calmMode, calmSessions, jobQueue, now, logger });
+
 const app = createApp({
   logger,
   readinessChecks: [databaseReadinessCheck(db)],
@@ -68,6 +98,7 @@ const app = createApp({
     disconnect: connectionRemoval.disconnect,
     appReturnUrl: config.bluesky.appReturnUrl,
   },
+  calm: { calmMode, jobQueue, now },
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
