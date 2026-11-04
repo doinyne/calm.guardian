@@ -105,12 +105,14 @@ self-reviewed PR.
 - [ ] Universal Links / App Links files served from the domain
 
 ### M2: Archive core ⭐ (TDD, fakes first)
-- [ ] `CalmMode` service depending on interfaces (Platform adapter, archive repo, session repo, clock)
-- [ ] Every post in the window is backed up **before any** delete; backup failure → nothing deleted, session failed
+- [x] `CalmMode` service depending on interfaces (Platform adapter, archive repo, session repo, clock), per connected account plus "turn on for all" (ADR-0011)
+- [x] Every post in the period is backed up **before any** delete; backup failure → nothing deleted, session failed (core, with fakes)
 - [ ] Full record kept (text, facets, embeds, langs, reply refs); image blobs copied to Storage
 - [ ] Session state machine (e.g. activating → active / failed → ending → ended)
+- [x] Period: presets (24 hours, 7 days, 30 days, everything) or a custom from–to (`packages/shared`; the picker lands in M3)
+- [ ] Database tables and repositories for Calm sessions and the Archive
 - [ ] Job runner (ADR), rate-limit-aware retries with backoff, failures reported, never swallowed
-- [ ] Honest result: "X hidden, Y could not be hidden (still visible)"
+- [x] Honest result: "X hidden, Y could not be hidden (still visible)" (core)
 
 ### M3: Calm Mode
 - [ ] Calm Mode **per connected account**, plus "turn on / off for all"; each Calm session records who started it

@@ -1,0 +1,310 @@
+import { presetCalmPeriod } from '@calm-guardian/shared';
+import { describe, expect, it } from 'vitest';
+
+import type { AccountId } from '../accounts/account-id';
+import type { ExternalAccountId } from '../connections/connected-account';
+import { FakeArchive } from '../testing/fake-archive';
+import { FakeCalmSessions } from '../testing/fake-calm-sessions';
+import { FakeConnectedAccounts } from '../testing/fake-connected-accounts';
+import { aPost, FakePlatformPosts } from '../testing/fake-platform-posts';
+import { captureLogs } from '../testing/log-capture';
+import { ConnectedAccountNotFoundError, createCalmMode } from './calm-mode';
+
+const NOW = new Date('2026-11-04T12:00:00.000Z');
+const LAST_7_DAYS = presetCalmPeriod('last-7-days', NOW);
+const ME = '2b0c8a52-3f7e-4d1a-9c6b-5e8f7a1d2c30' as AccountId;
+const SOMEONE_ELSE = '9d4e1f60-7a2b-4c8d-8e3f-1a2b3c4d5e6f' as AccountId;
+
+/** Calm Mode wired to fakes that share one log of what happened, in order. */
+function setUp({ pageSize }: { pageSize?: number } = {}) {
+  const operations: string[] = [];
+  const connectedAccounts = new FakeConnectedAccounts();
+  const platform = new FakePlatformPosts(operations, pageSize);
+  const archive = new FakeArchive(operations);
+  const calmSessions = new FakeCalmSessions();
+  const calmMode = createCalmMode({
+    connectedAccounts,
+    platformPosts: platform,
+    archive,
+    calmSessions,
+    now: () => NOW,
+    logger: captureLogs().logger,
+  });
+
+  const connect = (handle: string, accountId = ME) =>
+    connectedAccounts.connect({
+      accountId,
+      platform: 'bluesky',
+      externalId: `did:plc:${handle}` as ExternalAccountId,
+      handle: `${handle}.bsky.social`,
+    });
+
+  return { calmMode, connectedAccounts, platform, archive, calmSessions, operations, connect };
+}
+
+/** `count` posts, one an hour, going back from just before now. */
+function recentPosts(count: number) {
+  return Array.from({ length: count }, (_, hour) =>
+    aPost(new Date(NOW.getTime() - (hour + 1) * 60 * 60 * 1000).toISOString()),
+  );
+}
+
+describe('turning Calm Mode on for a connected account', () => {
+  it('backs up every post in the period before deleting any', async () => {
+    const { calmMode, platform, operations, connect } = setUp({ pageSize: 2 });
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(5));
+
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    const firstDelete = operations.findIndex((operation) => operation.startsWith('delete'));
+    const backups = operations.filter((operation) => operation.startsWith('back up'));
+    expect(backups).toHaveLength(5);
+    expect(operations.slice(firstDelete).some((operation) => operation.startsWith('back up'))).toBe(
+      false,
+    );
+  });
+
+  it('hides the backed-up posts and says how many', async () => {
+    const { calmMode, platform, archive, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(3));
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 3, stillVisible: 0 });
+    expect(platform.visibleUris(account.id)).toEqual([]);
+    expect(archive.all().every((entry) => entry.hiddenAt)).toBe(true);
+    expect(calmSessions.all().map((session) => session.state)).toEqual(['active']);
+  });
+
+  it('keeps the whole post, so it can be restored as it was', async () => {
+    const { calmMode, platform, archive, connect } = setUp();
+    const account = await connect('dean');
+    const post = aPost('2026-11-04T09:00:00.000Z');
+    platform.publish(account.id, post);
+
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    expect(archive.all()[0]?.post).toEqual(post);
+  });
+
+  it('leaves posts outside the period alone', async () => {
+    const { calmMode, platform, archive, connect } = setUp();
+    const account = await connect('dean');
+    const older = aPost('2026-10-01T09:00:00.000Z');
+    platform.publish(account.id, older, aPost('2026-11-04T09:00:00.000Z'));
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 1 });
+    expect(platform.visibleUris(account.id)).toEqual([older.uri]);
+    expect(archive.all()).toHaveLength(1);
+  });
+
+  it('covers every page of posts, not just the first', async () => {
+    const { calmMode, platform, connect } = setUp({ pageSize: 100 });
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(150));
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 150 });
+    expect(platform.visibleUris(account.id)).toEqual([]);
+  });
+
+  it('turns on with nothing to hide when the period has no posts', async () => {
+    const { calmMode, connect } = setUp();
+    const account = await connect('dean');
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 0, stillVisible: 0 });
+  });
+});
+
+describe('when something goes wrong', () => {
+  it('deletes nothing when a backup fails, and the Calm session fails', async () => {
+    const { calmMode, platform, archive, calmSessions, operations, connect } = setUp({
+      pageSize: 2,
+    });
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(5));
+    archive.failSavesAfter(1); // the first page is stored, the second isn't
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'failed', reason: 'backup-failed' });
+    expect(operations.filter((operation) => operation.startsWith('delete'))).toEqual([]);
+    expect(platform.visibleUris(account.id)).toHaveLength(5);
+    expect(calmSessions.all()[0]).toMatchObject({ state: 'failed', failure: 'backup-failed' });
+  });
+
+  it("deletes nothing when the Platform can't list the posts", async () => {
+    const { calmMode, platform, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(2));
+    platform.failToList();
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'failed', reason: 'could-not-read-posts' });
+    expect(platform.visibleUris(account.id)).toHaveLength(2);
+    expect(calmSessions.all()[0]?.state).toBe('failed');
+  });
+
+  it('reports a post it could not delete as still visible, and keeps its backup', async () => {
+    const { calmMode, platform, archive, connect } = setUp();
+    const account = await connect('dean');
+    const [stuck, ...others] = recentPosts(3);
+    if (!stuck) throw new Error('expected posts');
+    platform.publish(account.id, stuck, ...others);
+    platform.failToDelete(stuck.uri);
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 2, stillVisible: 1 });
+    expect(platform.visibleUris(account.id)).toEqual([stuck.uri]);
+    const stuckBackup = archive.all().find((entry) => entry.uri === stuck.uri);
+    expect(stuckBackup).toBeDefined();
+    expect(stuckBackup?.hiddenAt).toBeUndefined();
+  });
+
+  it('finishes an interrupted activation when retried, without backing anything up twice', async () => {
+    const { calmMode, platform, archive, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(3));
+    archive.failNextMarkHidden(); // the first post is deleted, then the work stops
+    const activation = { accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS };
+
+    await expect(calmMode.activate(activation)).rejects.toThrow();
+    const result = await calmMode.activate(activation);
+
+    expect(result).toMatchObject({ outcome: 'active', hidden: 3, stillVisible: 0 });
+    expect(archive.all()).toHaveLength(3);
+    expect(platform.visibleUris(account.id)).toEqual([]);
+    expect(calmSessions.all()).toHaveLength(1);
+  });
+});
+
+describe('retrying and safety', () => {
+  it('gives one Calm session when turned on twice', async () => {
+    const { calmMode, platform, calmSessions, operations, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(2));
+    const activation = { accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS };
+
+    await calmMode.activate(activation);
+    const operationsAfterFirst = operations.length;
+    const second = await calmMode.activate(activation);
+
+    expect(second).toEqual({ outcome: 'already-active', calmSessionId: calmSessions.all()[0]?.id });
+    expect(calmSessions.all()).toHaveLength(1);
+    expect(operations).toHaveLength(operationsAfterFirst);
+  });
+
+  it("refuses another Account's connected account and touches nothing", async () => {
+    const { calmMode, platform, calmSessions, connect } = setUp();
+    const theirs = await connect('someone', SOMEONE_ELSE);
+    platform.publish(theirs.id, ...recentPosts(2));
+
+    await expect(
+      calmMode.activate({ accountId: ME, connectedAccountId: theirs.id, period: LAST_7_DAYS }),
+    ).rejects.toThrow(ConnectedAccountNotFoundError);
+    expect(platform.visibleUris(theirs.id)).toHaveLength(2);
+    expect(calmSessions.all()).toEqual([]);
+  });
+
+  it('asks the user to sign in again when the Platform stopped accepting us', async () => {
+    const { calmMode, connectedAccounts, platform, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(2));
+    await connectedAccounts.markNeedsReauth({
+      platform: 'bluesky',
+      externalId: account.externalId,
+    });
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toEqual({ outcome: 'needs-sign-in' });
+    expect(calmSessions.all()).toEqual([]);
+  });
+});
+
+describe('turning Calm Mode on for all connected accounts', () => {
+  it('starts one Calm session for each', async () => {
+    const { calmMode, platform, calmSessions, connect } = setUp();
+    const work = await connect('work');
+    const personal = await connect('personal');
+    platform.publish(work.id, ...recentPosts(2));
+    platform.publish(personal.id, ...recentPosts(1));
+
+    const results = await calmMode.activateAll({ accountId: ME, period: LAST_7_DAYS });
+
+    expect(results).toMatchObject([
+      { connectedAccountId: work.id, result: { outcome: 'active', hidden: 2 } },
+      { connectedAccountId: personal.id, result: { outcome: 'active', hidden: 1 } },
+    ]);
+    expect(calmSessions.all().map((session) => session.connectedAccountId)).toEqual([
+      work.id,
+      personal.id,
+    ]);
+  });
+
+  it("carries on with the others when one account can't be protected", async () => {
+    const { calmMode, connectedAccounts, platform, connect } = setUp();
+    const stale = await connect('stale');
+    const fine = await connect('fine');
+    platform.publish(fine.id, ...recentPosts(1));
+    await connectedAccounts.markNeedsReauth({ platform: 'bluesky', externalId: stale.externalId });
+
+    const results = await calmMode.activateAll({ accountId: ME, period: LAST_7_DAYS });
+
+    expect(results.map(({ result }) => result.outcome)).toEqual(['needs-sign-in', 'active']);
+    expect(platform.visibleUris(fine.id)).toEqual([]);
+  });
+
+  it("leaves other Accounts' connected accounts alone", async () => {
+    const { calmMode, platform, connect } = setUp();
+    await connect('dean');
+    const theirs = await connect('someone', SOMEONE_ELSE);
+    platform.publish(theirs.id, ...recentPosts(1));
+
+    const results = await calmMode.activateAll({ accountId: ME, period: LAST_7_DAYS });
+
+    expect(results).toHaveLength(1);
+    expect(platform.visibleUris(theirs.id)).toHaveLength(1);
+  });
+});
