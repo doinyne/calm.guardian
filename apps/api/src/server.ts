@@ -14,6 +14,7 @@ import { createCalmMode } from './calm/calm-mode';
 import { createCalmSessionsRepository } from './calm/calm-sessions-repository';
 import { createRestore } from './calm/restore';
 import { createRestoreAllJob } from './calm/restore-all-job';
+import { createSweepJob, createSweepSchedule } from './calm/sweep-job';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
 import { createConnectionRemoval } from './connections/connection-removal';
 import { createPendingConnections } from './connections/pending-connections';
@@ -81,6 +82,7 @@ const restore = createRestore({
 const jobs: {
   runActivation?: ReturnType<typeof createActivationJob>;
   runRestoreAll?: ReturnType<typeof createRestoreAllJob>;
+  runSweep?: ReturnType<typeof createSweepJob>;
 } = {};
 const jobQueue = createInProcessJobQueue({
   handlers: () => ({
@@ -92,12 +94,28 @@ const jobQueue = createInProcessJobQueue({
       jobs.runRestoreAll
         ? jobs.runRestoreAll(payload)
         : Promise.reject(new Error('Job handlers are not ready')),
+    sweep: (payload) =>
+      jobs.runSweep
+        ? jobs.runSweep(payload)
+        : Promise.reject(new Error('Job handlers are not ready')),
   }),
   logger,
   now,
 });
 jobs.runActivation = createActivationJob({ calmMode, calmSessions, jobQueue, now, logger });
 jobs.runRestoreAll = createRestoreAllJob({ restore, jobQueue, now, logger });
+jobs.runSweep = createSweepJob({ calmMode, calmSessions, jobQueue, now, logger });
+
+// The Sweep's schedule. Locally a timer; deployed, Cloud Scheduler (ADR-0015, M0b).
+const queueSweeps = createSweepSchedule({ calmSessions, jobQueue });
+const sweepTimer = setInterval(() => {
+  queueSweeps().catch((error: unknown) => {
+    logger.error(
+      { errorName: error instanceof Error ? error.name : typeof error },
+      'Could not queue the Sweep',
+    );
+  });
+}, config.sweepIntervalMs);
 
 const app = createApp({
   logger,
@@ -130,6 +148,7 @@ const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
 for (const signal of SHUTDOWN_SIGNALS) {
   process.once(signal, () => {
     logger.info({ signal }, 'Shutting down');
+    clearInterval(sweepTimer);
     server.close((serverError) => {
       if (serverError) logger.error({ err: serverError }, 'Error while closing the server');
       db.destroy().then(

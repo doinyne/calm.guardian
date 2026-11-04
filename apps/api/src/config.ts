@@ -31,7 +31,14 @@ export type Config = {
   /** Newest first: the first key encrypts, all of them decrypt. */
   tokenEncryptionKeys: EncryptionKey[];
   bluesky: BlueskyConfig;
+  /** How often the Sweep looks for posts made while Calm Mode is on (ADR-0015). */
+  sweepIntervalMs: number;
 };
+
+/** Every 5 minutes (ADR-0015). Shorten it locally to watch the Sweep work. */
+const DEFAULT_SWEEP_INTERVAL_SECONDS = 300;
+/** Any more often would spend Bluesky's rate limits for little gain. */
+const MIN_SWEEP_INTERVAL_SECONDS = 10;
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
@@ -105,6 +112,11 @@ const EnvSchema = z.object({
       isAppLink,
       "must use the app's own link scheme, e.g. calmguardian-dev://connect/bluesky",
     ),
+  SWEEP_INTERVAL_SECONDS: z.coerce
+    .number()
+    .int()
+    .min(MIN_SWEEP_INTERVAL_SECONDS)
+    .default(DEFAULT_SWEEP_INTERVAL_SECONDS),
 });
 
 export class ConfigError extends Error {
@@ -134,6 +146,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     TOKEN_ENCRYPTION_KEYS,
     BLUESKY_REDIRECT_URL,
     APP_CONNECT_RETURN_URL,
+    SWEEP_INTERVAL_SECONDS,
   } = result.data;
   return {
     port: PORT,
@@ -145,6 +158,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       redirectUrl: new URL(BLUESKY_REDIRECT_URL),
       appReturnUrl: new URL(APP_CONNECT_RETURN_URL),
     },
+    sweepIntervalMs: SWEEP_INTERVAL_SECONDS * 1000,
   };
 }
 

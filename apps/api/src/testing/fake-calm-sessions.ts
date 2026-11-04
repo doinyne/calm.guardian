@@ -50,6 +50,12 @@ export class FakeCalmSessions implements CalmSessions {
     return Promise.resolve(session ? { ...session } : undefined);
   }
 
+  listActive() {
+    return Promise.resolve(
+      this.sessions.filter((session) => session.state === 'active').map((session) => session.id),
+    );
+  }
+
   findOpenFor(connectedAccountId: ConnectedAccountId) {
     const open = this.sessions.find(
       (session) => session.connectedAccountId === connectedAccountId && isOpen(session.state),

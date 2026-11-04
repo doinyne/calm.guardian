@@ -181,6 +181,21 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
       expect((await openSession(connected)).id).not.toBe(session.id);
     });
 
+    it('are listed for the Sweep only while Calm Mode is on', async () => {
+      const activating = await openSession(await connectBluesky());
+      const on = await openSession(await connectBluesky());
+      await calmSessions.markActive({ calmSessionId: on.id, activatedAt: NOW });
+      const ended = await openSession(await connectBluesky());
+      await calmSessions.markActive({ calmSessionId: ended.id, activatedAt: NOW });
+      await calmSessions.end({ calmSessionId: ended.id, endedAt: NOW });
+
+      const active = await calmSessions.listActive();
+
+      expect(active).toContain(on.id);
+      expect(active).not.toContain(activating.id);
+      expect(active).not.toContain(ended.id);
+    });
+
     it("can't end while still activating", async () => {
       const connected = await connectBluesky();
       const session = await openSession(connected);

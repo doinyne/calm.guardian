@@ -25,7 +25,11 @@ const REQUIRED_ENV = {
 
 describe('loadConfig', () => {
   it('uses defaults when optional variables are missing', () => {
-    expect(loadConfig(REQUIRED_ENV)).toMatchObject({ port: 3000, logLevel: 'info' });
+    expect(loadConfig(REQUIRED_ENV)).toMatchObject({
+      port: 3000,
+      logLevel: 'info',
+      sweepIntervalMs: 300_000,
+    });
   });
 
   it('reads the port Cloud Run provides', () => {
@@ -139,5 +143,14 @@ describe('loadConfig', () => {
 
     expect(error.message).toContain('LOG_LEVEL');
     expect(error.message).not.toContain(secretLookingValue);
+  });
+
+  it('reads the Sweep interval in seconds, and refuses one too short', () => {
+    expect(loadConfig({ ...REQUIRED_ENV, SWEEP_INTERVAL_SECONDS: '30' }).sweepIntervalMs).toBe(
+      30_000,
+    );
+    expect(() => loadConfig({ ...REQUIRED_ENV, SWEEP_INTERVAL_SECONDS: '1' })).toThrow(
+      /SWEEP_INTERVAL_SECONDS/,
+    );
   });
 });

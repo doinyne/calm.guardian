@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { captureLogs } from '../testing/log-capture';
+import { NO_JOB_HANDLERS } from '../testing/no-job-handlers';
 import { createInProcessJobQueue } from './in-process-job-queue';
 import type { JobPayload } from './job-queue';
 
@@ -10,7 +11,7 @@ const RETRY = { maxAttempts: 3, firstDelayMs: 1_000, maxDelayMs: 10_000 };
 function setUp(handle: (payload: JobPayload<'activate-calm-mode'>) => Promise<void>) {
   const logs = captureLogs();
   const queue = createInProcessJobQueue({
-    handlers: () => ({ 'activate-calm-mode': handle, 'restore-all': () => Promise.resolve() }),
+    handlers: () => ({ ...NO_JOB_HANDLERS, 'activate-calm-mode': handle }),
     logger: logs.logger,
     now: () => new Date(),
     retry: RETRY,

@@ -86,6 +86,15 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
       return row ? toCalmSession(row) : undefined;
     },
 
+    async listActive() {
+      const rows = await db
+        .selectFrom('calm_sessions')
+        .select('id')
+        .where('state', '=', 'active')
+        .execute();
+      return rows.map((row) => row.id as CalmSessionId);
+    },
+
     async findOpenFor(connectedAccountId) {
       const row = await findOpen(connectedAccountId);
       return row ? toCalmSession(row) : undefined;

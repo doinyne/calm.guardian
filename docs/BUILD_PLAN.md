@@ -133,8 +133,11 @@ self-reviewed PR.
 - [ ] Wording for very long activations ("about 2 hours"), from Bluesky's rate limits (ADR-0015)
 
 ### M4: Sweep
-- [ ] Server-side schedule backs up and hides posts made during an active session, app closed or not
-- [ ] Reuses the M2 core. **No duplicated backup/delete logic.**
+- [x] Server-side schedule backs up and hides posts made during an active session, app closed or not (every 5 minutes by default, `SWEEP_INTERVAL_SECONDS`)
+- [x] Reuses the M2 core: same newest-first walk, backup before delete, rate-limit waits. **No duplicated backup/delete logic.**
+- [x] Swept posts join the same Calm session, so they're counted on home and reviewed with the rest
+- [x] Never runs alongside the session's activation (same claim)
+- [ ] Deployed schedule: Cloud Scheduler → `/internal/sweep` with OIDC (needs GCP, M0b)
 
 ### M5: Review and Restore
 - [x] Restore puts a post back **exactly as it was**, at its original address, so likes, replies and quotes reconnect (ADR-0016); files are uploaded first
