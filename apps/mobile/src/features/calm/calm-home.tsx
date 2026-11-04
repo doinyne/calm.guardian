@@ -6,6 +6,8 @@ import { MonoLabel } from '@/components/mono-label';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
+import { useReview } from '@/features/review/use-review';
+
 import { accountReadout, turnOffMessage } from './calm-copy';
 import {
   useCalmStatus,
@@ -51,11 +53,15 @@ function overallOf(accounts: readonly CalmAccount[]): Overall {
 export function CalmHome({
   onTurnOn,
   onConnect,
+  onReview,
 }: {
   onTurnOn: (target: CalmTarget) => void;
   onConnect: () => void;
+  onReview: () => void;
 }) {
   const status = useCalmStatus();
+  const review = useReview();
+  const hiddenPosts = review.data?.posts.length ?? 0;
   const accounts = status.data ?? [];
   const hero = HERO[overallOf(accounts)];
   const canTurnOnForAll = accounts.length > 1 && accounts.some((account) => account.calm === null);
@@ -70,6 +76,20 @@ export function CalmHome({
           <Text className="text-muted-foreground">{hero.body}</Text>
         </View>
       </View>
+
+      {hiddenPosts > 0 ? (
+        <View className="gap-3 rounded-xl border border-hope bg-card p-5">
+          <MonoLabel className="text-hope">Review</MonoLabel>
+          <Text>
+            {review.data?.toReview
+              ? `${review.data.toReview} hidden ${review.data.toReview === 1 ? 'post is' : 'posts are'} waiting for you, safely backed up. Look whenever you're ready.`
+              : 'Your hidden posts are safely backed up. You can bring any of them back.'}
+          </Text>
+          <Button variant="outline" onPress={onReview}>
+            <Text>Review hidden posts</Text>
+          </Button>
+        </View>
+      ) : null}
 
       <View className="gap-4 rounded-xl border border-border bg-card p-5">
         <View className="flex-row items-center justify-between">

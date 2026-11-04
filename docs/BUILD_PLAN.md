@@ -141,7 +141,7 @@ self-reviewed PR.
 - [x] Idempotent: checked for first, then marked restored **right after** its own create succeeds; restoring twice never duplicates
 - [x] Archive actions: *Restore*, *Keep hidden*, *Delete for good*, and *Restore all* (background job, oldest first, skips kept-hidden)
 - [x] Not while Calm Mode is on for that account; "Review is clear" counted for Guardians (ADR-0011)
-- [ ] Review screen in the app
+- [x] Review screen in the app: each hidden post in its own words, Bring back, Keep hidden, Delete for good (confirmed), Bring back all; a gentle Review card on home
 - [ ] Check against Bluesky that a post can be re-created at a deleted post's record key (ADR-0016)
 
 ### M6: Guardians

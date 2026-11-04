@@ -32,6 +32,7 @@ export default function HomeRoute() {
           })
         }
         onConnect={() => router.push('/connect')}
+        onReview={() => router.push('/review')}
       />
     </Screen>
   );
