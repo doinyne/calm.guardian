@@ -1,3 +1,4 @@
+import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccountId } from '../connections/connected-account';
 import type { CalmSessionId } from './calm-session';
 import type { PlatformPost, PostUri } from './platform-posts';
@@ -23,6 +24,7 @@ export interface Archive {
    * so backing it up again updates it rather than adding another.
    */
   saveAll(input: {
+    accountId: AccountId;
     calmSessionId: CalmSessionId;
     connectedAccountId: ConnectedAccountId;
     posts: readonly PlatformPost[];

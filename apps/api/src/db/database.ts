@@ -30,8 +30,36 @@ export type AtprotoOauthSessionsTable = {
   updated_at: Generated<Date>;
 };
 
+export type CalmSessionsTable = {
+  id: Generated<string>;
+  account_id: string;
+  connected_account_id: string;
+  state: Generated<string>;
+  period_from: Date | null;
+  period_to: Date;
+  failure: string | null;
+  started_at: Date;
+  activated_at: Date | null;
+  failed_at: Date | null;
+};
+
+export type ArchivedPostsTable = {
+  id: Generated<string>;
+  account_id: string;
+  connected_account_id: string;
+  calm_session_id: string;
+  uri: string;
+  cid: string;
+  posted_at: Date;
+  record_encrypted: string;
+  backed_up_at: Date;
+  hidden_at: Date | null;
+};
+
 export type Database = {
   connected_accounts: ConnectedAccountsTable;
+  calm_sessions: CalmSessionsTable;
+  archived_posts: ArchivedPostsTable;
   atproto_oauth_states: AtprotoOauthStatesTable;
   atproto_oauth_sessions: AtprotoOauthSessionsTable;
 };

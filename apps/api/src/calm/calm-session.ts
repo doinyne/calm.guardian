@@ -1,5 +1,6 @@
 import type { CalmPeriod } from '@calm-guardian/shared';
 
+import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccountId } from '../connections/connected-account';
 
 export type CalmSessionId = string & { readonly __brand: 'CalmSessionId' };
@@ -48,6 +49,7 @@ export interface CalmSessions {
    * calls at once never open two sessions for one connected account.
    */
   openFor(input: {
+    accountId: AccountId;
     connectedAccountId: ConnectedAccountId;
     period: CalmPeriod;
     startedAt: Date;
