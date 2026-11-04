@@ -4,9 +4,9 @@ import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccount, ConnectedAccountId } from '../connections/connected-account';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
 import type { Logger } from '../logger';
-import type { Archive } from './archive';
+import type { Archive, MediaCopy } from './archive';
 import type { CalmSession, CalmSessionFailure, CalmSessionId, CalmSessions } from './calm-session';
-import type { PlatformPosts } from './platform-posts';
+import type { PlatformPost, PlatformPosts } from './platform-posts';
 
 export type CalmModeDependencies = {
   connectedAccounts: Pick<ConnectedAccountsRepository, 'findForAccount' | 'listForAccount'>;
@@ -133,22 +133,45 @@ export function createCalmMode({
         return 'could-not-read-posts';
       }
 
-      try {
-        await archive.saveAll({
-          accountId: connectedAccount.accountId,
-          calmSessionId: calmSession.id,
-          connectedAccountId: connectedAccount.id,
-          posts: page.posts,
-          backedUpAt: now(),
-        });
-      } catch (error) {
-        logFailure(error, calmSession, 'Could not back up posts; nothing was hidden');
-        return 'backup-failed';
+      for (const post of page.posts) {
+        let media;
+        try {
+          media = await copyMedia(connectedAccount, post);
+        } catch (error) {
+          logFailure(error, calmSession, "Could not fetch a post's files; nothing was hidden");
+          return 'could-not-read-posts';
+        }
+
+        try {
+          await archive.save({
+            accountId: connectedAccount.accountId,
+            calmSessionId: calmSession.id,
+            connectedAccountId: connectedAccount.id,
+            post,
+            media,
+            backedUpAt: now(),
+          });
+        } catch (error) {
+          logFailure(error, calmSession, 'Could not back up a post; nothing was hidden');
+          return 'backup-failed';
+        }
       }
 
       cursor = page.nextCursor;
     } while (cursor !== undefined);
     return undefined;
+  }
+
+  /** One at a time, so a post with large files doesn't hold a whole page of them in memory. */
+  async function copyMedia(
+    connectedAccount: ConnectedAccount,
+    post: PlatformPost,
+  ): Promise<MediaCopy[]> {
+    const copies: MediaCopy[] = [];
+    for (const media of post.media) {
+      copies.push({ ...media, bytes: await platformPosts.fetchMedia({ connectedAccount, media }) });
+    }
+    return copies;
   }
 
   /**
