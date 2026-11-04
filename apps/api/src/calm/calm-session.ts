@@ -10,16 +10,20 @@ export type CalmSessionId = string & { readonly __brand: 'CalmSessionId' };
  * - `active`: Calm Mode is on for the connected account.
  * - `failed`: activation stopped before hiding anything. Calm Mode is off.
  *
- * Turning Calm Mode off (`ending`, `ended`) arrives with M3.
+ * - `ended`: the user turned Calm Mode off. Its hidden posts stay hidden until Review (M5).
  */
-export const CALM_SESSION_STATES = ['activating', 'active', 'failed'] as const;
+export const CALM_SESSION_STATES = ['activating', 'active', 'failed', 'ended'] as const;
 export type CalmSessionState = (typeof CALM_SESSION_STATES)[number];
 
-/** Where each state can go next. `active` and `failed` wait for deactivation (M3). */
+/**
+ * Where each state can go next. Turning off waits until hiding has finished (Dean, 2026-11-04), so
+ * `activating` can't go straight to `ended`.
+ */
 const NEXT_STATES: Record<CalmSessionState, readonly CalmSessionState[]> = {
   activating: ['active', 'failed'],
-  active: [],
+  active: ['ended'],
   failed: [],
+  ended: [],
 };
 
 export function canMoveTo(from: CalmSessionState, to: CalmSessionState): boolean {
@@ -62,6 +66,9 @@ export interface CalmSessions {
 
   find(calmSessionId: CalmSessionId): Promise<CalmSession | undefined>;
 
+  /** The connected account's activating or active session, if it has one. */
+  findOpenFor(connectedAccountId: ConnectedAccountId): Promise<CalmSession | undefined>;
+
   saveProgress(input: { calmSessionId: CalmSessionId; resumeCursor: string | null }): Promise<void>;
 
   /**
@@ -73,6 +80,9 @@ export interface CalmSessions {
   release(calmSessionId: CalmSessionId): Promise<void>;
 
   markActive(input: { calmSessionId: CalmSessionId; activatedAt: Date }): Promise<void>;
+
+  /** Turns Calm Mode off: `active` to `ended`. */
+  end(input: { calmSessionId: CalmSessionId; endedAt: Date }): Promise<void>;
 
   markFailed(input: {
     calmSessionId: CalmSessionId;

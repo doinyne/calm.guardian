@@ -502,3 +502,112 @@ describe('turning Calm Mode on for all connected accounts', () => {
     expect(platform.visibleUris(theirs.id)).toHaveLength(1);
   });
 });
+
+describe('previewing what will be hidden', () => {
+  it('counts the posts in the period without touching them', async () => {
+    const { calmMode, platform, operations, connect } = setUp({ pageSize: 2 });
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(5), aPost('2026-10-01T09:00:00.000Z'));
+
+    const preview = await calmMode.preview({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(preview).toEqual({ posts: 5, more: false });
+    expect(operations.some((operation) => /back up|delete|fetch/.test(operation))).toBe(false);
+  });
+
+  it('stops counting at the limit and says there are more', async () => {
+    const { calmMode, platform, connect } = setUp({ pageSize: 2 });
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(7));
+
+    const preview = await calmMode.preview({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+      limit: 4,
+    });
+
+    expect(preview).toEqual({ posts: 4, more: true });
+  });
+});
+
+describe('turning Calm Mode off', () => {
+  it('ends the Calm session and leaves the hidden posts hidden, for Review', async () => {
+    const { calmMode, platform, archive, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    platform.publish(account.id, ...recentPosts(2));
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    const result = await calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+
+    expect(result).toBe('off');
+    expect(calmSessions.all()[0]?.state).toBe('ended');
+    expect(platform.visibleUris(account.id)).toEqual([]);
+    expect(archive.all().every((entry) => entry.hiddenAt)).toBe(true);
+  });
+
+  it('is not allowed while posts are still being hidden', async () => {
+    const { calmMode, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    await calmMode.start({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    const result = await calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+
+    expect(result).toBe('still-activating');
+    expect(calmSessions.all()[0]?.state).toBe('activating');
+  });
+
+  it('is safe to repeat', async () => {
+    const { calmMode, connect } = setUp();
+    const account = await connect('dean');
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    await calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+    const again = await calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+
+    expect(again).toBe('already-off');
+  });
+
+  it('can be turned on again afterwards, as a new Calm session', async () => {
+    const { calmMode, calmSessions, connect } = setUp();
+    const account = await connect('dean');
+    const activation = { accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS };
+    await calmMode.activate(activation);
+    await calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+
+    const result = await calmMode.activate(activation);
+
+    expect(result.outcome).toBe('active');
+    expect(calmSessions.all().map((session) => session.state)).toEqual(['ended', 'active']);
+  });
+
+  it("refuses another Account's connected account", async () => {
+    const { calmMode, connect } = setUp();
+    const theirs = await connect('someone', SOMEONE_ELSE);
+
+    await expect(
+      calmMode.turnOff({ accountId: ME, connectedAccountId: theirs.id }),
+    ).rejects.toThrow(ConnectedAccountNotFoundError);
+  });
+});
+
+describe('the status of each connected account', () => {
+  it('shows each account with its open Calm session, if any', async () => {
+    const { calmMode, platform, connect } = setUp();
+    const calm = await connect('calm');
+    const standingBy = await connect('standing-by');
+    platform.publish(calm.id, ...recentPosts(2));
+    await calmMode.activate({ accountId: ME, connectedAccountId: calm.id, period: LAST_7_DAYS });
+
+    const status = await calmMode.status(ME);
+
+    expect(status).toMatchObject([
+      { connectedAccount: calm, calm: { state: 'active', hidden: 2, period: LAST_7_DAYS } },
+      { connectedAccount: standingBy, calm: null },
+    ]);
+  });
+});

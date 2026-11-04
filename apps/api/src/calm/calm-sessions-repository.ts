@@ -86,6 +86,25 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
       return row ? toCalmSession(row) : undefined;
     },
 
+    async findOpenFor(connectedAccountId) {
+      const row = await findOpen(connectedAccountId);
+      return row ? toCalmSession(row) : undefined;
+    },
+
+    async end({ calmSessionId, endedAt }) {
+      const result = await db
+        .updateTable('calm_sessions')
+        .set({ state: 'ended', ended_at: endedAt })
+        .where('id', '=', calmSessionId)
+        .where('state', '=', 'active')
+        .executeTakeFirst();
+      if (result.numUpdatedRows === 0n) {
+        throw new CalmSessionTransitionError(
+          `Calm session ${calmSessionId} is not active, so it can't end`,
+        );
+      }
+    },
+
     async saveProgress({ calmSessionId, resumeCursor }) {
       await db
         .updateTable('calm_sessions')

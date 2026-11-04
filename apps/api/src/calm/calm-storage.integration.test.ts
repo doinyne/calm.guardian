@@ -168,6 +168,27 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
       });
     });
 
+    it('end once Calm Mode is turned off, and a new one can open', async () => {
+      const connected = await connectBluesky();
+      const session = await openSession(connected);
+      await calmSessions.markActive({ calmSessionId: session.id, activatedAt: NOW });
+
+      await calmSessions.end({ calmSessionId: session.id, endedAt: NOW });
+
+      expect(await calmSessions.findOpenFor(connected.id)).toBeUndefined();
+      expect((await calmSessions.find(session.id))?.state).toBe('ended');
+      expect((await openSession(connected)).id).not.toBe(session.id);
+    });
+
+    it("can't end while still activating", async () => {
+      const connected = await connectBluesky();
+      const session = await openSession(connected);
+
+      await expect(calmSessions.end({ calmSessionId: session.id, endedAt: NOW })).rejects.toThrow(
+        /not active/,
+      );
+    });
+
     it('refuse to become active twice', async () => {
       const connected = await connectBluesky();
       const session = await openSession(connected);
