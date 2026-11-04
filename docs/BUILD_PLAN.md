@@ -116,7 +116,8 @@ self-reviewed PR.
 - [ ] Session state machine (e.g. activating → active / failed → ending → ended)
 - [x] Period: presets (24 hours, 7 days, 30 days, everything) or a custom from–to (`packages/shared`; the picker lands in M3)
 - [x] Database tables and repositories for Calm sessions and the Archive: post content encrypted; one open Calm session per connected account; disconnect refused while posts are hidden (ADR-0013)
-- [ ] Job runner (ADR), rate-limit-aware retries with backoff, failures reported, never swallowed
+- [x] Job runner (ADR-0015): `JobQueue` port, local in-process queue, the activation job (claims, 8-minute slices, saved progress, waits for Bluesky's rate limit, retries with backoff, failures logged by name)
+- [ ] Cloud Tasks adapter, `/internal/jobs` with OIDC checks, and the Sweep schedule (needs GCP, M0b)
 - [x] Honest result: "X hidden, Y could not be hidden (still visible)" (core)
 
 ### M3: Calm Mode
