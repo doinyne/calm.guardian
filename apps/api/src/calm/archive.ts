@@ -1,7 +1,7 @@
 import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccountId } from '../connections/connected-account';
 import type { CalmSessionId } from './calm-session';
-import type { PlatformPost, PostUri } from './platform-posts';
+import type { MediaRef, PlatformPost, PostUri } from './platform-posts';
 
 export type ArchivedPostId = string & { readonly __brand: 'ArchivedPostId' };
 
@@ -16,18 +16,22 @@ export type BackedUpPost = {
   backedUpAt: Date;
 };
 
+/** A copy of one of a post's files. */
+export type MediaCopy = MediaRef & { bytes: Uint8Array };
+
 /** The backed-up posts (the Archive repository's port). */
 export interface Archive {
   /**
-   * Backs up each post in full for this Calm session. Resolves only once every post is stored, and
-   * rejects if any isn't. Retry-safe: each post is held once per connected account (keyed by its URI),
-   * so backing it up again updates it rather than adding another.
+   * Backs up a post in full, with copies of its files, for this Calm session. Resolves only once the
+   * post and every file are stored, and rejects otherwise. Retry-safe: each post is held once per
+   * connected account (keyed by its URI), so backing it up again updates it rather than adding another.
    */
-  saveAll(input: {
+  save(input: {
     accountId: AccountId;
     calmSessionId: CalmSessionId;
     connectedAccountId: ConnectedAccountId;
-    posts: readonly PlatformPost[];
+    post: PlatformPost;
+    media: readonly MediaCopy[];
     backedUpAt: Date;
   }): Promise<void>;
 

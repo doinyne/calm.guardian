@@ -139,6 +139,50 @@ describe('turning Calm Mode on for a connected account', () => {
   });
 });
 
+describe("a post's images and other files", () => {
+  it('are copied into the Archive with their post, before anything is deleted', async () => {
+    const { calmMode, platform, archive, operations, connect } = setUp();
+    const account = await connect('dean');
+    const post = aPost('2026-11-04T09:00:00.000Z', { mediaCount: 2 });
+    platform.publish(account.id, post);
+
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    expect(archive.all()[0]?.media.map((copy) => copy.cid)).toEqual(
+      post.media.map((media) => media.cid),
+    );
+    expect(archive.all()[0]?.media.map((copy) => Buffer.from(copy.bytes).toString())).toEqual(
+      post.media.map((media) => `bytes of ${media.cid}`),
+    );
+    const fetches = operations.filter((operation) => operation.startsWith('fetch'));
+    expect(fetches).toHaveLength(2);
+    expect(operations.indexOf(`back up ${post.uri}`)).toBeLessThan(
+      operations.indexOf(`delete ${post.uri}`),
+    );
+  });
+
+  it("stop everything when one can't be fetched: nothing is deleted", async () => {
+    const { calmMode, platform, calmSessions, operations, connect } = setUp();
+    const account = await connect('dean');
+    const withImage = aPost('2026-11-04T09:00:00.000Z', { mediaCount: 1 });
+    platform.publish(account.id, aPost('2026-11-04T08:00:00.000Z'), withImage);
+    const [image] = withImage.media;
+    if (!image) throw new Error('expected an image');
+    platform.failToFetchMedia(image.cid);
+
+    const result = await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+
+    expect(result).toMatchObject({ outcome: 'failed', reason: 'could-not-read-posts' });
+    expect(operations.filter((operation) => operation.startsWith('delete'))).toEqual([]);
+    expect(platform.visibleUris(account.id)).toHaveLength(2);
+    expect(calmSessions.all()[0]?.state).toBe('failed');
+  });
+});
+
 describe('when something goes wrong', () => {
   it('deletes nothing when a backup fails, and the Calm session fails', async () => {
     const { calmMode, platform, archive, calmSessions, operations, connect } = setUp({
@@ -146,7 +190,7 @@ describe('when something goes wrong', () => {
     });
     const account = await connect('dean');
     platform.publish(account.id, ...recentPosts(5));
-    archive.failSavesAfter(1); // the first page is stored, the second isn't
+    archive.failSavesAfter(2); // the first page is stored, the second isn't
 
     const result = await calmMode.activate({
       accountId: ME,

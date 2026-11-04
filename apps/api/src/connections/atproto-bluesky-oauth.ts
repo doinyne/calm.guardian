@@ -9,6 +9,8 @@ import {
 import { z } from 'zod';
 
 import { AccountIdSchema } from '../accounts/account-id';
+import { createAtprotoBlueskyRepo } from '../bluesky/atproto-bluesky-repo';
+import type { BlueskyRepoFor } from '../bluesky/bluesky-repo';
 import type { SecretBox } from '../crypto/secret-box';
 import { createAdvisoryLock } from '../db/advisory-lock';
 import type { Db } from '../db/database';
@@ -52,7 +54,7 @@ export function createAtprotoBlueskyOAuth({
   redirectUrl: URL;
   /** Bluesky stopped honouring a session (refresh failed, or revoked). */
   onSessionEnded: (did: ExternalAccountId) => void;
-}): BlueskyOAuth {
+}): BlueskyOAuth & { repoFor: BlueskyRepoFor } {
   const client = new NodeOAuthClient({
     clientMetadata: buildAtprotoLoopbackClientMetadata({
       scope: SCOPE,
@@ -85,5 +87,8 @@ export function createAtprotoBlueskyOAuth({
     },
 
     revoke: (did) => client.revoke(did),
+
+    /** Signs in as the account with its stored session, refreshing tokens if they've expired. */
+    repoFor: async (did) => createAtprotoBlueskyRepo(await client.restore(did)),
   };
 }

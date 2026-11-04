@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
-import type { Archive, ArchivedPostId, BackedUpPost } from '../calm/archive';
+import type { Archive, ArchivedPostId, BackedUpPost, MediaCopy } from '../calm/archive';
 import type { CalmSessionId } from '../calm/calm-session';
 import type { PlatformPost } from '../calm/platform-posts';
 
 export type FakeArchivedPost = BackedUpPost & {
   calmSessionId: CalmSessionId;
   post: PlatformPost;
+  media: readonly MediaCopy[];
   hiddenAt?: Date;
 };
 
@@ -27,7 +28,7 @@ export class FakeArchive implements Archive {
     return [...this.entries.values()];
   }
 
-  /** The next `saveAll` calls after this many succeed are rejected. */
+  /** Every `save` after this many succeed is rejected. */
   failSavesAfter(successfulSaves: number) {
     this.savesLeft = successfulSaves;
   }
@@ -36,28 +37,28 @@ export class FakeArchive implements Archive {
     this.markHiddenFailures += 1;
   }
 
-  saveAll({
+  save({
     calmSessionId,
     connectedAccountId,
-    posts,
+    post,
+    media,
     backedUpAt,
-  }: Parameters<Archive['saveAll']>[0]) {
+  }: Parameters<Archive['save']>[0]) {
     if (this.savesLeft <= 0) return Promise.reject(new Error('Storage unavailable'));
     this.savesLeft -= 1;
 
-    for (const post of posts) {
-      const key = `${connectedAccountId} ${post.uri}`;
-      const existing = this.entries.get(key);
-      this.entries.set(key, {
-        id: existing?.id ?? (randomUUID() as ArchivedPostId),
-        connectedAccountId,
-        uri: post.uri,
-        backedUpAt,
-        calmSessionId,
-        post,
-      });
-      this.operations.push(`back up ${post.uri}`);
-    }
+    const key = `${connectedAccountId} ${post.uri}`;
+    const existing = this.entries.get(key);
+    this.entries.set(key, {
+      id: existing?.id ?? (randomUUID() as ArchivedPostId),
+      connectedAccountId,
+      uri: post.uri,
+      backedUpAt,
+      calmSessionId,
+      post,
+      media,
+    });
+    this.operations.push(`back up ${post.uri}`);
     return Promise.resolve();
   }
 

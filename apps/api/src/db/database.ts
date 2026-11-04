@@ -56,10 +56,20 @@ export type ArchivedPostsTable = {
   hidden_at: Date | null;
 };
 
+export type ArchivedMediaTable = {
+  id: Generated<string>;
+  archived_post_id: string;
+  cid: string;
+  mime_type: string;
+  size_bytes: number;
+  content_encrypted: Buffer;
+};
+
 export type Database = {
   connected_accounts: ConnectedAccountsTable;
   calm_sessions: CalmSessionsTable;
   archived_posts: ArchivedPostsTable;
+  archived_media: ArchivedMediaTable;
   atproto_oauth_states: AtprotoOauthStatesTable;
   atproto_oauth_sessions: AtprotoOauthSessionsTable;
 };

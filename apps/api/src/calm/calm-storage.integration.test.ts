@@ -18,6 +18,7 @@ import { createCalmSessionsRepository } from './calm-sessions-repository';
 
 const NOW = new Date('2026-11-04T12:00:00.000Z');
 const PERIOD = presetCalmPeriod('last-7-days', NOW);
+const imageBytes = (cid: string) => new Uint8Array(Buffer.from(`pretend JPEG for ${cid}`));
 
 describe('Calm sessions and the Archive (local Supabase)', () => {
   const supabase = connectToLocalSupabase();
@@ -64,13 +65,16 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
   /** Backs up the posts in a new Calm session and returns their Archive entries. */
   async function backUp(connected: ConnectedAccount, ...posts: ReturnType<typeof aPost>[]) {
     const session = await openSession(connected);
-    await archive.saveAll({
-      accountId: connected.accountId,
-      calmSessionId: session.id,
-      connectedAccountId: connected.id,
-      posts,
-      backedUpAt: NOW,
-    });
+    for (const post of posts) {
+      await archive.save({
+        accountId: connected.accountId,
+        calmSessionId: session.id,
+        connectedAccountId: connected.id,
+        post,
+        media: post.media.map((media) => ({ ...media, bytes: imageBytes(media.cid) })),
+        backedUpAt: NOW,
+      });
+    }
     return { session, entries: await archive.listNotHidden(session.id) };
   }
 
@@ -148,14 +152,38 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
       expect(await archive.readPost(entry.id)).toEqual(post);
     });
 
+    it("stores the post's files encrypted, and gives them back exactly", async () => {
+      const connected = await connectBluesky();
+      const post = aPost('2026-11-04T09:00:00.000Z', { mediaCount: 2 });
+      const {
+        entries: [entry],
+      } = await backUp(connected, post);
+      if (!entry) throw new Error('expected a backup');
+
+      const rows = await db
+        .selectFrom('archived_media')
+        .select('content_encrypted')
+        .where('archived_post_id', '=', entry.id)
+        .execute();
+      expect(rows).toHaveLength(2);
+      for (const row of rows) expect(row.content_encrypted.includes('pretend JPEG')).toBe(false);
+      expect(
+        (await archive.readMedia(entry.id)).map((copy) => Buffer.from(copy.bytes).toString()),
+      ).toEqual(post.media.map((media) => `pretend JPEG for ${media.cid}`).sort());
+      expect((await archive.readPost(entry.id))?.media).toEqual(post.media);
+    });
+
     it('holds each post once, however often it is backed up', async () => {
       const connected = await connectBluesky();
-      const post = aPost('2026-11-04T09:00:00.000Z');
+      const post = aPost('2026-11-04T09:00:00.000Z', { mediaCount: 1 });
 
       await backUp(connected, post);
-      await backUp(connected, post);
+      const {
+        entries: [entry],
+      } = await backUp(connected, post);
 
       expect(await rowCount('archived_posts', connected.id)).toBe(1);
+      expect(await archive.readMedia(entry?.id ?? ('' as ArchivedPostId))).toHaveLength(1);
     });
 
     it('counts hidden posts', async () => {

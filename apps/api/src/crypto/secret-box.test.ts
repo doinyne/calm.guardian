@@ -77,3 +77,53 @@ describe('secret box', () => {
     expect(() => createSecretBox([])).toThrow(/at least one key/);
   });
 });
+
+describe('secret box, for files', () => {
+  const k1 = key('k1');
+  const IMAGE = randomBytes(4096);
+  const IMAGE_CONTEXT = 'archived_media:post-1:bafkreiimage';
+
+  it('opens the bytes it sealed', () => {
+    const box = createSecretBox([k1]);
+
+    expect(Buffer.from(box.openBytes(box.sealBytes(IMAGE, IMAGE_CONTEXT), IMAGE_CONTEXT))).toEqual(
+      IMAGE,
+    );
+  });
+
+  it('never repeats a ciphertext, and hides the original bytes', () => {
+    const box = createSecretBox([k1]);
+    const sealed = box.sealBytes(IMAGE, IMAGE_CONTEXT);
+
+    expect(sealed).not.toEqual(box.sealBytes(IMAGE, IMAGE_CONTEXT));
+    expect(sealed.includes(IMAGE.subarray(0, 64))).toBe(false);
+  });
+
+  it('refuses bytes sealed for another post', () => {
+    const box = createSecretBox([k1]);
+    const sealed = box.sealBytes(IMAGE, IMAGE_CONTEXT);
+
+    expect(() => box.openBytes(sealed, 'archived_media:post-2:bafkreiimage')).toThrow(
+      SecretBoxError,
+    );
+  });
+
+  it('refuses tampered bytes', () => {
+    const box = createSecretBox([k1]);
+    const sealed = Buffer.from(box.sealBytes(IMAGE, IMAGE_CONTEXT));
+    sealed[sealed.length - 1] = (sealed.at(-1) ?? 0) ^ 0xff;
+
+    expect(() => box.openBytes(sealed, IMAGE_CONTEXT)).toThrow(SecretBoxError);
+  });
+
+  it('opens bytes sealed with an older key after a rotation', () => {
+    const k2 = key('k2');
+    const sealed = createSecretBox([k1]).sealBytes(IMAGE, IMAGE_CONTEXT);
+
+    expect(Buffer.from(createSecretBox([k2, k1]).openBytes(sealed, IMAGE_CONTEXT))).toEqual(IMAGE);
+  });
+
+  it('refuses bytes that were never sealed', () => {
+    expect(() => createSecretBox([k1]).openBytes(IMAGE, IMAGE_CONTEXT)).toThrow(SecretBoxError);
+  });
+});

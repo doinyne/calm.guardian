@@ -14,7 +14,12 @@ export type PlatformPost = {
   createdAt: Date;
   /** The whole record as the Platform stores it, so Restore can re-create it faithfully. */
   record: Readonly<Record<string, unknown>>;
+  /** Every file the post uses. Restore needs them all, so each is backed up with the post. */
+  media: readonly MediaRef[];
 };
+
+/** A file attached to a post (an image, a video, captions, a link preview), by its content hash. */
+export type MediaRef = { cid: string; mimeType: string };
 
 export type PostsPage = { posts: readonly PlatformPost[]; nextCursor?: string };
 
@@ -29,6 +34,9 @@ export interface PlatformPosts {
     period: CalmPeriod;
     cursor?: string;
   }): Promise<PostsPage>;
+
+  /** A file's bytes, exactly as the Platform holds them. */
+  fetchMedia(input: { connectedAccount: ConnectedAccount; media: MediaRef }): Promise<Uint8Array>;
 
   /**
    * Removes the post from the Platform. Takes only a post we've backed up (product rule 1).
