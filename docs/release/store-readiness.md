@@ -53,8 +53,8 @@ user's identity.
 | Sign-in metadata: IP address and device user agent | Session security and abuse prevention | Yes | No (processor: Supabase) | Supabase Auth sessions and audit log | M1 |
 | Connected account ID (Bluesky DID) and handle | Act on the user's posts | Yes | No | Postgres | M1 |
 | Connected account OAuth tokens | Act on the user's posts | Yes | No | Postgres (encrypted) | M1 |
-| User content: archived posts and images | Backup and Restore | Yes | No | Postgres + Supabase Storage | M2 |
-| Calm session times | Calm Mode state, history | Yes | No | Postgres | M3 |
+| User content: archived posts (the whole post record: text, links, mentions, replies) and images | Backup and Restore | Yes | No | Postgres (post content encrypted by the API, ADR-0013) + Supabase Storage (images, coming in M2) | M2 |
+| Calm session times and chosen period | Calm Mode state, history | Yes | No | Postgres | M2 |
 | Guardian name and email (third party) | Notify guardians | Yes | Emailed to the guardian; processor: email provider | Postgres | M6 |
 | Guardian's own Account and which connected accounts they may protect | Let Guardians turn on Calm Mode (ADR-0011) | Yes | No | Supabase Auth + Postgres | M6 |
 | Who started each Calm session (the user or a Guardian) | Tell the user who turned Calm Mode on | Yes | No | Postgres | M3/M6 |
