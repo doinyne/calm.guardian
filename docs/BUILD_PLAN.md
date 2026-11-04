@@ -121,11 +121,15 @@ self-reviewed PR.
 - [x] Honest result: "X hidden, Y could not be hidden (still visible)" (core)
 
 ### M3: Calm Mode
-- [ ] Calm Mode **per connected account**, plus "turn on / off for all"; each Calm session records who started it
-- [ ] Activate (with a "preview what will be hidden" step, replacing v1's Feed tab), status, deactivate
-- [ ] Honest per-account results: an account that needs signing in again is reported as not protected
-- [ ] Progress UI, double-tap prevented, Calm Mode indicator on every screen
-- [ ] Status survives an app restart; deactivate finds the active session server-side
+- [x] Activate (with a "preview what will be hidden" step: a count, up to 1,000+, replacing v1's Feed tab), status, deactivate
+- [x] Per connected account, plus "Turn on for all" (ADR-0011); presets: 24 hours, 7 days, 30 days, everything
+- [x] Runs in the background (ADR-0015); home shows progress ("Hiding posts, newest first · 12 hidden")
+- [x] Turning off keeps hidden posts hidden until Review; it waits until hiding has finished (Dean, 2026-11-04), and the app says why
+- [x] Double-tap prevented (one open Calm session per connected account in the database; buttons disabled while sending)
+- [x] Calm Mode indicator on home and Settings (modals are short-lived and skip it)
+- [x] Status survives an app restart; deactivate finds the active session server-side
+- [ ] Custom from–to period picker (`@react-native-community/datetimepicker`, a native rebuild; the API core already accepts custom periods)
+- [ ] Wording for very long activations ("about 2 hours"), from Bluesky's rate limits (ADR-0015)
 
 ### M4: Sweep
 - [ ] Server-side schedule backs up and hides posts made during an active session, app closed or not

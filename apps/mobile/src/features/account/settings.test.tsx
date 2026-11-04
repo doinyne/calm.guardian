@@ -7,7 +7,14 @@ const auth = fakeAccountAuth();
 
 /** Stubs the network at its edge: our API is a separate process, so this is its boundary. */
 function stubApiResponse(status: number) {
-  return jest.spyOn(global, 'fetch').mockResolvedValue(new Response(null, { status }));
+  return jest
+    .spyOn(global, 'fetch')
+    .mockImplementation(() => Promise.resolve(new Response(null, { status })));
+}
+
+/** The account deletion requests made, ignoring reads such as the Calm Mode indicator's. */
+function deletions(fetch: ReturnType<typeof stubApiResponse>) {
+  return fetch.mock.calls.filter(([, init]) => init?.method === 'DELETE');
 }
 
 beforeEach(() => {
@@ -49,7 +56,7 @@ describe('settings', () => {
       await confirmDeletion();
 
       await waitFor(() => expect(screen).toHavePathname('/welcome'));
-      const [url, init] = fetch.mock.calls[0] ?? [];
+      const [url, init] = deletions(fetch)[0] ?? [];
       expect(url instanceof Request ? url.url : url?.toString()).toMatch(/\/account$/);
       expect(init?.method).toBe('DELETE');
       expect(new Headers(init?.headers).get('authorization')).toBe('Bearer fake-access-token');
@@ -62,7 +69,7 @@ describe('settings', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Delete account' }));
       await fireEvent.press(await screen.findByRole('button', { name: 'Keep my account' }));
 
-      expect(fetch).not.toHaveBeenCalled();
+      expect(deletions(fetch)).toEqual([]);
       expect(screen).toHavePathname('/settings');
     });
 
