@@ -11,6 +11,8 @@ export const API_ERROR_CODES = [
   'connection_has_hidden_posts',
   'connection_needs_sign_in',
   'calm_mode_still_activating',
+  'calm_mode_on',
+  'platform_busy',
   'not_found',
   'payload_too_large',
   'internal_error',

@@ -12,6 +12,8 @@ import { createActivationJob } from './calm/activation-job';
 import { createArchiveRepository } from './calm/archive-repository';
 import { createCalmMode } from './calm/calm-mode';
 import { createCalmSessionsRepository } from './calm/calm-sessions-repository';
+import { createRestore } from './calm/restore';
+import { createRestoreAllJob } from './calm/restore-all-job';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
 import { createConnectionRemoval } from './connections/connection-removal';
 import { createPendingConnections } from './connections/pending-connections';
@@ -57,28 +59,45 @@ const connectionRemoval = createConnectionRemoval({
 
 const now = () => new Date();
 const calmSessions = createCalmSessionsRepository(db);
+const platformPosts = createBlueskyPosts({ repoFor: bluesky.repoFor, logger });
 const calmMode = createCalmMode({
   connectedAccounts,
-  platformPosts: createBlueskyPosts({ repoFor: bluesky.repoFor, logger }),
+  platformPosts,
   archive,
   calmSessions,
   now,
   logger,
 });
+const restore = createRestore({
+  connectedAccounts,
+  calmSessions,
+  archive,
+  platformPosts,
+  now,
+  logger,
+});
 
 // Local and single-instance for now; Cloud Tasks replaces it when we deploy (ADR-0015, M0b).
-const jobs: { runActivation?: ReturnType<typeof createActivationJob> } = {};
+const jobs: {
+  runActivation?: ReturnType<typeof createActivationJob>;
+  runRestoreAll?: ReturnType<typeof createRestoreAllJob>;
+} = {};
 const jobQueue = createInProcessJobQueue({
   handlers: () => ({
     'activate-calm-mode': (payload) =>
       jobs.runActivation
         ? jobs.runActivation(payload)
         : Promise.reject(new Error('Job handlers are not ready')),
+    'restore-all': (payload) =>
+      jobs.runRestoreAll
+        ? jobs.runRestoreAll(payload)
+        : Promise.reject(new Error('Job handlers are not ready')),
   }),
   logger,
   now,
 });
 jobs.runActivation = createActivationJob({ calmMode, calmSessions, jobQueue, now, logger });
+jobs.runRestoreAll = createRestoreAllJob({ restore, jobQueue, now, logger });
 
 const app = createApp({
   logger,
@@ -99,6 +118,7 @@ const app = createApp({
     appReturnUrl: config.bluesky.appReturnUrl,
   },
   calm: { calmMode, jobQueue, now },
+  review: { restore, archive, jobQueue },
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {

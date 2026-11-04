@@ -10,7 +10,7 @@ const RETRY = { maxAttempts: 3, firstDelayMs: 1_000, maxDelayMs: 10_000 };
 function setUp(handle: (payload: JobPayload<'activate-calm-mode'>) => Promise<void>) {
   const logs = captureLogs();
   const queue = createInProcessJobQueue({
-    handlers: () => ({ 'activate-calm-mode': handle }),
+    handlers: () => ({ 'activate-calm-mode': handle, 'restore-all': () => Promise.resolve() }),
     logger: logs.logger,
     now: () => new Date(),
     retry: RETRY,

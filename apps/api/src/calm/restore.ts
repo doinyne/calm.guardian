@@ -3,6 +3,7 @@ import type { ConnectedAccountId } from '../connections/connected-account';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
 import type { Logger } from '../logger';
 import type { ArchivedPostId, ReviewArchive } from './archive';
+import { ConnectedAccountNotFoundError } from './calm-mode';
 import type { CalmSessions } from './calm-session';
 import { PlatformRateLimitedError, type PlatformPosts } from './platform-posts';
 
@@ -177,5 +178,24 @@ export function createRestore({
     return undefined;
   }
 
-  return { restore, restoreAll, keepHidden, deleteForGood };
+  /** Whether Restore all can start for this connected account. */
+  async function canRestoreAll({
+    accountId,
+    connectedAccountId,
+  }: {
+    accountId: AccountId;
+    connectedAccountId: ConnectedAccountId;
+  }): Promise<'yes' | 'calm-mode-on' | 'needs-sign-in'> {
+    const connectedAccount = await connectedAccounts.findForAccount({
+      accountId,
+      connectedAccountId,
+    });
+    if (!connectedAccount) throw new ConnectedAccountNotFoundError();
+    const blocked = await checkCanRestore(accountId, connectedAccountId);
+    return blocked?.outcome === 'calm-mode-on' || blocked?.outcome === 'needs-sign-in'
+      ? blocked.outcome
+      : 'yes';
+  }
+
+  return { restore, restoreAll, keepHidden, deleteForGood, canRestoreAll };
 }

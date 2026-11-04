@@ -13,6 +13,7 @@ import { accountRoutes } from './routes/account';
 import { calmRoutes, type CalmDependencies } from './routes/calm';
 import { connectionsRoutes, type ConnectionsDependencies } from './routes/connections';
 import { healthRoutes, type ReadinessCheck } from './routes/health';
+import { reviewRoutes, type ReviewDependencies } from './routes/review';
 
 /** Clients only send small commands; post content is backed up server-side, never uploaded. */
 const MAX_REQUEST_BODY_BYTES = 100 * 1024;
@@ -24,6 +25,7 @@ export type AppDependencies = {
   deleteAccount: DeleteAccount;
   connections: ConnectionsDependencies;
   calm: CalmDependencies;
+  review: ReviewDependencies;
 };
 
 /**
@@ -37,6 +39,7 @@ export function createApp({
   deleteAccount,
   connections,
   calm,
+  review,
 }: AppDependencies) {
   const signedIn = requireAccount({ verifyAccessToken, logger });
 
@@ -57,7 +60,8 @@ export function createApp({
     .route('/', healthRoutes({ readinessChecks, logger }))
     .route('/', accountRoutes({ requireAccount: signedIn, deleteAccount }))
     .route('/', connectionsRoutes({ requireAccount: signedIn, logger, ...connections }))
-    .route('/', calmRoutes({ requireAccount: signedIn, ...calm }));
+    .route('/', calmRoutes({ requireAccount: signedIn, ...calm }))
+    .route('/', reviewRoutes({ requireAccount: signedIn, ...review }));
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);

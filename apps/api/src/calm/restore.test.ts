@@ -259,4 +259,20 @@ describe('restoring everything for an account', () => {
     expect(result).toEqual({ outcome: 'done', notRestored: 1 });
     expect(platform.visibleUris(account.id)).toHaveLength(1);
   });
+
+  it('can start only while Calm Mode is off for the account', async () => {
+    const { restore, calmMode, account, hide } = await setUp();
+    await hide(hoursAgo(1));
+    const canRestore = () =>
+      restore.canRestoreAll({ accountId: ME, connectedAccountId: account.id });
+
+    const whileOff = await canRestore();
+    await calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: presetCalmPeriod('last-24-hours', NOW),
+    });
+
+    expect([whileOff, await canRestore()]).toEqual(['yes', 'calm-mode-on']);
+  });
 });
