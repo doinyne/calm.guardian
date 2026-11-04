@@ -44,6 +44,8 @@ export class FakePlatformPosts implements PlatformPosts {
   private readonly undeletable = new Set<PostUri>();
   private readonly unfetchable = new Set<string>();
   private rateLimitedUntil: Date | undefined;
+  private restoreRateLimitedUntil: Date | undefined;
+  private readonly unrestorable = new Set<PostUri>();
   private listingFails = false;
 
   constructor(
@@ -68,6 +70,36 @@ export class FakePlatformPosts implements PlatformPosts {
   /** The next delete is refused with "slow down until `retryAt`". */
   rateLimitNextDelete(retryAt: Date) {
     this.rateLimitedUntil = retryAt;
+  }
+
+  /** The next restore is refused with "slow down until `retryAt`". */
+  rateLimitNextRestore(retryAt: Date) {
+    this.restoreRateLimitedUntil = retryAt;
+  }
+
+  failToRestore(uri: PostUri) {
+    this.unrestorable.add(uri);
+  }
+
+  uploadMedia({ media }: Parameters<PlatformPosts['uploadMedia']>[0]) {
+    this.operations.push(`upload ${media.cid}`);
+    return Promise.resolve();
+  }
+
+  /** Puts the post back exactly as it was. `already-there` if it's visible, like Bluesky's record key. */
+  restorePost({ connectedAccount, post }: Parameters<PlatformPosts['restorePost']>[0]) {
+    if (this.restoreRateLimitedUntil) {
+      const retryAt = this.restoreRateLimitedUntil;
+      this.restoreRateLimitedUntil = undefined;
+      return Promise.reject(new PlatformRateLimitedError(retryAt));
+    }
+    if (this.unrestorable.has(post.uri)) return Promise.reject(new Error('Create refused'));
+    if (this.visibleUris(connectedAccount.id).includes(post.uri)) {
+      return Promise.resolve('already-there' as const);
+    }
+    this.publish(connectedAccount.id, post);
+    this.operations.push(`restore ${post.uri}`);
+    return Promise.resolve('restored' as const);
   }
 
   failToFetchMedia(cid: string) {

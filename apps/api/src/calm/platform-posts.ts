@@ -1,7 +1,7 @@
 import type { CalmPeriod } from '@calm-guardian/shared';
 
 import type { ConnectedAccount } from '../connections/connected-account';
-import type { BackedUpPost } from './archive';
+import type { BackedUpPost, MediaCopy } from './archive';
 
 /** A post's permanent address on its Platform (an `at://` URI on Bluesky). */
 export type PostUri = string & { readonly __brand: 'PostUri' };
@@ -49,6 +49,19 @@ export interface PlatformPosts {
 
   /** A file's bytes, exactly as the Platform holds them. */
   fetchMedia(input: { connectedAccount: ConnectedAccount; media: MediaRef }): Promise<Uint8Array>;
+
+  /** Uploads a backed-up file so a restored post can use it again. Uploading it twice is harmless. */
+  uploadMedia(input: { connectedAccount: ConnectedAccount; media: MediaCopy }): Promise<void>;
+
+  /**
+   * Puts a hidden post back **exactly as it was**, at its original address with its original record
+   * (Dean, 2026-11-04), so likes, replies and quotes reconnect. Its files must be uploaded first.
+   * `already-there`: the post exists, for example because an earlier attempt got this far.
+   */
+  restorePost(input: {
+    connectedAccount: ConnectedAccount;
+    post: PlatformPost;
+  }): Promise<'restored' | 'already-there'>;
 
   /**
    * Removes the post from the Platform. Takes only a post we've backed up (product rule 1).

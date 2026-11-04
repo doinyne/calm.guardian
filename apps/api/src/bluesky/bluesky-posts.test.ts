@@ -75,6 +75,25 @@ class FakeBlueskyRepo implements BlueskyRepo {
   getBlob(cid: string) {
     return Promise.resolve(new Uint8Array(Buffer.from(`blob ${cid}`)));
   }
+
+  readonly uploaded: string[] = [];
+  readonly created: { rkey: string; record: unknown }[] = [];
+  readonly existing = new Set<string>();
+
+  uploadBlob(bytes: Uint8Array, mimeType: string) {
+    this.uploaded.push(`${mimeType} ${Buffer.from(bytes).toString()}`);
+    return Promise.resolve();
+  }
+
+  hasPostRecord(rkey: string) {
+    return Promise.resolve(this.existing.has(rkey));
+  }
+
+  createPostRecord(rkey: string, record: Readonly<Record<string, unknown>>) {
+    this.created.push({ rkey, record });
+    this.existing.add(rkey);
+    return Promise.resolve();
+  }
 }
 
 function setUp(records: RepoRecord[], pageSize?: number) {
@@ -257,6 +276,62 @@ describe('Bluesky posts', () => {
         ).rejects.toThrow(/not one of this account's posts/);
       }
       expect(repo.deleted).toEqual([]);
+    });
+  });
+
+  describe('restoring', () => {
+    const post = {
+      uri: `at://${DID}/app.bsky.feed.post/3kabc` as PostUri,
+      cid: 'bafyrecord',
+      createdAt: NOW,
+      record: { $type: 'app.bsky.feed.post', text: 'Back again', createdAt: NOW.toISOString() },
+      media: [],
+    };
+
+    it('re-creates the exact record at its original record key', async () => {
+      const { posts, repo } = setUp([]);
+
+      const result = await posts.restorePost({ connectedAccount: CONNECTED, post });
+
+      expect(result).toBe('restored');
+      expect(repo.created).toEqual([{ rkey: '3kabc', record: post.record }]);
+    });
+
+    it('creates nothing when the post is already there', async () => {
+      const { posts, repo } = setUp([]);
+      repo.existing.add('3kabc');
+
+      const result = await posts.restorePost({ connectedAccount: CONNECTED, post });
+
+      expect(result).toBe('already-there');
+      expect(repo.created).toEqual([]);
+    });
+
+    it("refuses a post that isn't this account's", async () => {
+      const { posts, repo } = setUp([]);
+
+      await expect(
+        posts.restorePost({
+          connectedAccount: CONNECTED,
+          post: { ...post, uri: 'at://did:plc:other/app.bsky.feed.post/3kabc' as PostUri },
+        }),
+      ).rejects.toThrow(/not one of this account's posts/);
+      expect(repo.created).toEqual([]);
+    });
+
+    it('uploads a file with its type', async () => {
+      const { posts, repo } = setUp([]);
+
+      await posts.uploadMedia({
+        connectedAccount: CONNECTED,
+        media: {
+          cid: 'bafkimage',
+          mimeType: 'image/png',
+          bytes: new Uint8Array(Buffer.from('png')),
+        },
+      });
+
+      expect(repo.uploaded).toEqual(['image/png png']);
     });
   });
 

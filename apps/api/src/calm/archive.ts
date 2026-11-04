@@ -43,3 +43,51 @@ export interface Archive {
 
   countHidden(calmSessionId: CalmSessionId): Promise<number>;
 }
+
+/**
+ * Where a hidden post stands in Review:
+ * - `to-review`: hidden, and the user hasn't decided yet
+ * - `kept-hidden`: the user chose to keep it hidden (it can still be restored later)
+ * - `restored`: back on its Platform
+ */
+export type ReviewState = 'to-review' | 'kept-hidden' | 'restored';
+
+/** A backed-up post as Review shows it, decrypted. */
+export type ReviewItem = {
+  id: ArchivedPostId;
+  connectedAccountId: ConnectedAccountId;
+  state: ReviewState;
+  post: PlatformPost;
+  hiddenAt: Date;
+};
+
+/** The Archive as Review and Restore use it. Everything is scoped to the Account that owns it. */
+export interface ReviewArchive {
+  /** Posts still hidden (to review first, then kept hidden), newest first. */
+  listHidden(input: {
+    accountId: AccountId;
+    limit: number;
+  }): Promise<{ items: ReviewItem[]; more: boolean }>;
+
+  /** One of the Account's backed-up posts, with copies of its files. */
+  find(input: {
+    accountId: AccountId;
+    archivedPostId: ArchivedPostId;
+  }): Promise<(ReviewItem & { media: MediaCopy[] }) | undefined>;
+
+  /** The connected account's hidden posts that aren't kept hidden, oldest first: Restore all's queue. */
+  listToRestore(input: {
+    connectedAccountId: ConnectedAccountId;
+    limit: number;
+  }): Promise<ArchivedPostId[]>;
+
+  markRestored(input: { archivedPostId: ArchivedPostId; restoredAt: Date }): Promise<void>;
+
+  markKeptHidden(input: { archivedPostId: ArchivedPostId; keptAt: Date }): Promise<void>;
+
+  /** Deletes our copy for good: the post and its files. It can never be restored. */
+  deleteForGood(input: { accountId: AccountId; archivedPostId: ArchivedPostId }): Promise<void>;
+
+  /** Whether the Account has posts still to review. ADR-0011: Guardians wait until there are none. */
+  countToReview(accountId: AccountId): Promise<number>;
+}

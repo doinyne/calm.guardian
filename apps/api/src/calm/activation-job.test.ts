@@ -176,6 +176,7 @@ describe('the activation job', () => {
         handlers: () => ({
           'activate-calm-mode': (payload) =>
             handlers.runJob ? handlers.runJob(payload) : Promise.reject(new Error('not ready')),
+          'restore-all': () => Promise.resolve(),
         }),
         logger: captureLogs().logger,
         now: () => new Date(),

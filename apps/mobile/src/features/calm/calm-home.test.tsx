@@ -11,7 +11,9 @@ async function renderHome(accounts: () => CalmAccount[], routes = {}) {
   const requests = stubApi({ accounts, routes });
   const onTurnOn = jest.fn();
   const onConnect = jest.fn();
-  await renderWithQueries(<CalmHome onTurnOn={onTurnOn} onConnect={onConnect} />);
+  await renderWithQueries(
+    <CalmHome onTurnOn={onTurnOn} onConnect={onConnect} onReview={jest.fn()} />,
+  );
   return { requests, onTurnOn, onConnect };
 }
 

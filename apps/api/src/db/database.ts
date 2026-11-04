@@ -57,6 +57,8 @@ export type ArchivedPostsTable = {
   record_encrypted: string;
   backed_up_at: Date;
   hidden_at: Date | null;
+  restored_at: Date | null;
+  kept_hidden_at: Date | null;
 };
 
 export type ArchivedMediaTable = {

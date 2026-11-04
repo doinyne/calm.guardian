@@ -35,6 +35,8 @@ export const calmSession = (
 });
 
 type Reply = { status?: number; body?: unknown };
+/** A fixed reply, or a function for one that changes as the test goes on. */
+type Route = Reply | (() => Reply);
 
 /**
  * Our API, stubbed at the network edge. `routes` maps "METHOD /path" to a reply; `GET /calm` returns
@@ -45,7 +47,7 @@ export function stubApi({
   routes = {},
 }: {
   accounts: () => CalmAccount[];
-  routes?: Record<string, Reply>;
+  routes?: Record<string, Route>;
 }) {
   const requests: { method: string; path: string; body?: unknown }[] = [];
   jest.spyOn(global, 'fetch').mockImplementation(async (input, init) => {
@@ -54,7 +56,8 @@ export function stubApi({
     const body = typeof init?.body === 'string' ? (JSON.parse(init.body) as unknown) : undefined;
     requests.push({ method, path: url.pathname, body });
 
-    const reply = routes[`${method} ${url.pathname}`];
+    const route = routes[`${method} ${url.pathname}`];
+    const reply = typeof route === 'function' ? route() : route;
     if (reply) {
       return reply.body === undefined
         ? new Response(null, { status: reply.status ?? 204 })

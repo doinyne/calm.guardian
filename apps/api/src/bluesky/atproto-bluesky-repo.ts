@@ -1,5 +1,6 @@
 import { Agent } from '@atproto/api';
-import { lexToJson, type LexValue } from '@atproto/lexicon';
+import { jsonToLex, lexToJson, type LexValue } from '@atproto/lexicon';
+import { ResponseType, XRPCError } from '@atproto/xrpc';
 import type { OAuthSession } from '@atproto/oauth-client-node';
 
 import { asRateLimit } from './atproto-rate-limit';
@@ -57,9 +58,47 @@ export function createAtprotoBlueskyRepo(
       );
     },
 
+    async uploadBlob(bytes, mimeType) {
+      await call(() => agent.com.atproto.repo.uploadBlob(bytes, { encoding: mimeType }));
+    },
+
+    async hasPostRecord(rkey) {
+      try {
+        await call(() =>
+          agent.com.atproto.repo.getRecord({ repo, collection: POST_COLLECTION, rkey }),
+        );
+        return true;
+      } catch (error) {
+        if (isRecordNotFound(error)) return false;
+        throw error;
+      }
+    },
+
+    // `jsonToLex` turns the stored plain JSON back into the library's types (CIDs, blob refs), so the
+    // record Bluesky stores is byte-for-byte the one we backed up.
+    async createPostRecord(rkey, record) {
+      await call(() =>
+        agent.com.atproto.repo.createRecord({
+          repo,
+          collection: POST_COLLECTION,
+          rkey,
+          record: jsonToLex(record) as Record<string, unknown>,
+        }),
+      );
+    },
+
     async getBlob(cid) {
       const { data } = await call(() => agent.com.atproto.sync.getBlob({ did: repo, cid }));
       return data;
     },
   };
+}
+
+/** Bluesky answers a missing record with 400 RecordNotFound. */
+function isRecordNotFound(error: unknown) {
+  return (
+    error instanceof XRPCError &&
+    error.status === ResponseType.InvalidRequest &&
+    error.error === 'RecordNotFound'
+  );
 }

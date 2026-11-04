@@ -61,6 +61,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0013](decisions/0013-archive-storage.md) | Archive content encrypted; no disconnect while posts are hidden | Accepted |
 | [0014](decisions/0014-archive-media-in-postgres.md) | Archived files in Postgres, encrypted, stored and deleted with their post | Accepted |
 | [0015](decisions/0015-job-runner.md) | Background jobs: Cloud Tasks + Scheduler behind a `JobQueue` port; runs until done, newest posts first | Accepted |
+| [0016](decisions/0016-restore-exactly-as-it-was.md) | Restore re-creates the exact post at its original address | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
@@ -136,10 +137,12 @@ self-reviewed PR.
 - [ ] Reuses the M2 core. **No duplicated backup/delete logic.**
 
 ### M5: Review and Restore
-- [ ] Archive list with *Restore*, *Keep hidden*, *Delete for good* (confirm) and *Restore all*
-- [ ] Idempotent: each post marked restored **right after** its own create succeeds
-- [ ] Chronological restore; replies to own archived posts remapped to new URI/CID
-- [ ] Images re-uploaded; copy: "Restored posts will show today's date"
+- [x] Restore puts a post back **exactly as it was**, at its original address, so likes, replies and quotes reconnect (ADR-0016); files are uploaded first
+- [x] Idempotent: checked for first, then marked restored **right after** its own create succeeds; restoring twice never duplicates
+- [x] Archive actions: *Restore*, *Keep hidden*, *Delete for good*, and *Restore all* (background job, oldest first, skips kept-hidden)
+- [x] Not while Calm Mode is on for that account; "Review is clear" counted for Guardians (ADR-0011)
+- [x] Review screen in the app: each hidden post in its own words, Bring back, Keep hidden, Delete for good (confirmed), Bring back all; a gentle Review card on home
+- [ ] Check against Bluesky that a post can be re-created at a deleted post's record key (ADR-0016)
 
 ### M6: Guardians
 - [ ] Invite flow: the guardian **accepts by email** before they're notified (anti-abuse, GDPR consent)

@@ -54,10 +54,12 @@ describe('Calm Mode routes', () => {
 
     /** Runs the queued activation jobs, as the job runner would. */
     async function runQueuedJobs() {
-      for (const { payload } of calm.jobQueue.take()) {
-        await calm.calmMode.continueActivation({
-          calmSessionId: payload.calmSessionId as never,
-        });
+      for (const queued of calm.jobQueue.take()) {
+        if ('calmSessionId' in queued.payload) {
+          await calm.calmMode.continueActivation({
+            calmSessionId: queued.payload.calmSessionId as never,
+          });
+        }
       }
     }
 

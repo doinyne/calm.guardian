@@ -1,5 +1,6 @@
 import { createApp, type AppDependencies } from '../app';
 import { createCalmMode } from '../calm/calm-mode';
+import { createRestore } from '../calm/restore';
 import { AccessTokenRejectedError } from '../auth/access-token';
 import type { BlueskyOAuth } from '../connections/bluesky-oauth';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
@@ -51,6 +52,14 @@ export function buildTestApp({
     now: () => TEST_NOW,
     logger: logs.logger,
   });
+  const restore = createRestore({
+    connectedAccounts,
+    calmSessions,
+    archive,
+    platformPosts: platform,
+    now: () => TEST_NOW,
+    logger: logs.logger,
+  });
   const { disconnect } = createConnectionRemoval({
     connectedAccounts,
     revokeTokens: { bluesky: (did) => bluesky.revoke(did) },
@@ -70,7 +79,8 @@ export function buildTestApp({
       appReturnUrl: TEST_APP_RETURN_URL,
     },
     calm: { calmMode, jobQueue, now: () => TEST_NOW },
+    review: { restore, archive, jobQueue },
     ...overrides,
   });
-  return { app, logs, calm: { calmMode, platform, archive, calmSessions, jobQueue } };
+  return { app, logs, calm: { calmMode, restore, platform, archive, calmSessions, jobQueue } };
 }

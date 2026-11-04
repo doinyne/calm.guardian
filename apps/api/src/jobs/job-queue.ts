@@ -6,6 +6,7 @@ import { z } from 'zod';
  */
 export const JOB_PAYLOADS = {
   'activate-calm-mode': z.object({ calmSessionId: z.uuid() }),
+  'restore-all': z.object({ accountId: z.uuid(), connectedAccountId: z.uuid() }),
 } as const;
 
 export type JobName = keyof typeof JOB_PAYLOADS;
