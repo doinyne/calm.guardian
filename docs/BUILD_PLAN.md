@@ -110,7 +110,7 @@ self-reviewed PR.
 ### M2: Archive core ⭐ (TDD, fakes first)
 - [x] `CalmMode` service depending on interfaces (Platform adapter, archive repo, session repo, clock), per connected account plus "turn on for all" (ADR-0011)
 - [x] Every post is backed up (with its files) **before it's** deleted; a backup failure before anything is hidden → nothing deleted, session failed (core, with fakes)
-- [ ] Newest posts first, each hidden as soon as its own backup is stored (ADR-0015)
+- [x] Newest posts first, each hidden as soon as its own backup is stored (ADR-0015)
 - [x] Full record kept (text, facets, embeds, langs, reply refs); every file (images, video, captions, link previews) copied and encrypted (ADR-0014)
 - [x] Bluesky adapter: list posts for a period, fetch files, delete only this account's own posts
 - [ ] Session state machine (e.g. activating → active / failed → ending → ended)

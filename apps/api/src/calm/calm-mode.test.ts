@@ -50,18 +50,36 @@ function recentPosts(count: number) {
 }
 
 describe('turning Calm Mode on for a connected account', () => {
-  it('backs up every post in the period before deleting any', async () => {
+  it('deletes each post only after it has been backed up', async () => {
     const { calmMode, platform, operations, connect } = setUp({ pageSize: 2 });
     const account = await connect('dean');
-    platform.publish(account.id, ...recentPosts(5));
+    const posts = recentPosts(5);
+    platform.publish(account.id, ...posts);
 
     await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
 
-    const firstDelete = operations.findIndex((operation) => operation.startsWith('delete'));
-    const backups = operations.filter((operation) => operation.startsWith('back up'));
-    expect(backups).toHaveLength(5);
-    expect(operations.slice(firstDelete).some((operation) => operation.startsWith('back up'))).toBe(
-      false,
+    for (const post of posts) {
+      const backedUpAt = operations.indexOf(`back up ${post.uri}`);
+      expect(backedUpAt).toBeGreaterThanOrEqual(0);
+      expect(backedUpAt).toBeLessThan(operations.indexOf(`delete ${post.uri}`));
+    }
+  });
+
+  it('hides the newest posts first, so a recent post is hidden without waiting for older ones', async () => {
+    const { calmMode, platform, operations, connect } = setUp({ pageSize: 2 });
+    const account = await connect('dean');
+    const posts = recentPosts(5); // newest first
+    platform.publish(account.id, ...[...posts].reverse());
+
+    await calmMode.activate({ accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS });
+
+    const deletes = operations.filter((operation) => operation.startsWith('delete'));
+    expect(deletes).toEqual(posts.map((post) => `delete ${post.uri}`));
+    // The newest post is gone before the oldest is even backed up.
+    const [newest] = posts;
+    const oldest = posts.at(-1);
+    expect(operations.indexOf(`delete ${newest?.uri}`)).toBeLessThan(
+      operations.indexOf(`back up ${oldest?.uri}`),
     );
   });
 
@@ -184,13 +202,11 @@ describe("a post's images and other files", () => {
 });
 
 describe('when something goes wrong', () => {
-  it('deletes nothing when a backup fails, and the Calm session fails', async () => {
-    const { calmMode, platform, archive, calmSessions, operations, connect } = setUp({
-      pageSize: 2,
-    });
+  it('changes nothing when the first backup fails, and the Calm session fails', async () => {
+    const { calmMode, platform, archive, calmSessions, operations, connect } = setUp();
     const account = await connect('dean');
     platform.publish(account.id, ...recentPosts(5));
-    archive.failSavesAfter(2); // the first page is stored, the second isn't
+    archive.failSavesAfter(0);
 
     const result = await calmMode.activate({
       accountId: ME,
@@ -202,6 +218,32 @@ describe('when something goes wrong', () => {
     expect(operations.filter((operation) => operation.startsWith('delete'))).toEqual([]);
     expect(platform.visibleUris(account.id)).toHaveLength(5);
     expect(calmSessions.all()[0]).toMatchObject({ state: 'failed', failure: 'backup-failed' });
+  });
+
+  it('keeps hidden posts hidden when a backup fails partway, and carries on next time', async () => {
+    const { calmMode, platform, archive, calmSessions, connect } = setUp({ pageSize: 2 });
+    const account = await connect('dean');
+    const posts = recentPosts(5);
+    platform.publish(account.id, ...posts);
+    archive.failSavesAfter(2); // the two newest are stored and hidden, then storage fails
+    const activation = { accountId: ME, connectedAccountId: account.id, period: LAST_7_DAYS };
+
+    const interrupted = await calmMode.activate(activation);
+
+    expect(interrupted).toMatchObject({
+      outcome: 'interrupted',
+      hidden: 2,
+      reason: 'backup-failed',
+    });
+    expect(platform.visibleUris(account.id)).toEqual(posts.slice(2).map((post) => post.uri));
+    expect(calmSessions.all()[0]?.state).toBe('activating');
+
+    archive.failSavesAfter(Infinity);
+    const finished = await calmMode.activate(activation);
+
+    expect(finished).toMatchObject({ outcome: 'active', hidden: 5, stillVisible: 0 });
+    expect(platform.visibleUris(account.id)).toEqual([]);
+    expect(calmSessions.all()).toHaveLength(1);
   });
 
   it("deletes nothing when the Platform can't list the posts", async () => {
