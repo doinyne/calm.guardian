@@ -18,6 +18,21 @@ export type Disconnect = (details: {
 
 export type RevokeAllConnections = (accountId: AccountId) => Promise<void>;
 
+/** How many of the connected account's posts are hidden: they exist only in our Archive. */
+export type CountHiddenPosts = (connectedAccountId: ConnectedAccountId) => Promise<number>;
+
+/**
+ * Disconnecting would lose posts that exist only in the Archive (ADR-0013). The user restores them or
+ * deletes them for good first. Deleting the whole Account is different: it deletes everything.
+ */
+export class ConnectionHasHiddenPostsError extends Error {
+  override name = 'ConnectionHasHiddenPostsError';
+
+  constructor(readonly hiddenPosts: number) {
+    super(`The connected account has ${hiddenPosts} hidden posts`);
+  }
+}
+
 /**
  * Ending connections (product rule 8): revoke our tokens at the Platform, then delete our copy.
  *
@@ -28,10 +43,12 @@ export type RevokeAllConnections = (accountId: AccountId) => Promise<void>;
 export function createConnectionRemoval({
   connectedAccounts,
   revokeTokens,
+  countHiddenPosts,
   logger,
 }: {
   connectedAccounts: ConnectedAccountsRepository;
   revokeTokens: TokenRevokers;
+  countHiddenPosts: CountHiddenPosts;
   logger: Logger;
 }): { disconnect: Disconnect; revokeAll: RevokeAllConnections } {
   async function revokeAtPlatform(account: ConnectedAccount) {
@@ -53,6 +70,9 @@ export function createConnectionRemoval({
     async disconnect({ accountId, connectedAccountId }) {
       const account = await connectedAccounts.findForAccount({ accountId, connectedAccountId });
       if (!account) return;
+      // Checked before revoking, so a refused disconnect leaves the connection working.
+      const hiddenPosts = await countHiddenPosts(account.id);
+      if (hiddenPosts > 0) throw new ConnectionHasHiddenPostsError(hiddenPosts);
       await revokeAtPlatform(account);
       await connectedAccounts.disconnect({ accountId, connectedAccountId });
     },

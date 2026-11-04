@@ -8,6 +8,7 @@ export const API_ERROR_CODES = [
   'connection_code_invalid',
   'connection_started_elsewhere',
   'connected_elsewhere',
+  'connection_has_hidden_posts',
   'not_found',
   'payload_too_large',
   'internal_error',

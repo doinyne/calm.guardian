@@ -58,6 +58,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0010](decisions/0010-website.md) | Public website in `apps/web`: Next.js, KokonutUI, Motion | Proposed |
 | [0011](decisions/0011-guardian-calm-mode.md) | Calm Mode per connected account; Guardians may turn it on for accounts the user allows | Accepted |
 | [0012](decisions/0012-database-access.md) | Kysely + `pg`; schema in Supabase SQL migrations | Accepted |
+| [0013](decisions/0013-archive-storage.md) | Archive content encrypted; no disconnect while posts are hidden | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
@@ -110,7 +111,7 @@ self-reviewed PR.
 - [ ] Full record kept (text, facets, embeds, langs, reply refs); image blobs copied to Storage
 - [ ] Session state machine (e.g. activating → active / failed → ending → ended)
 - [x] Period: presets (24 hours, 7 days, 30 days, everything) or a custom from–to (`packages/shared`; the picker lands in M3)
-- [ ] Database tables and repositories for Calm sessions and the Archive
+- [x] Database tables and repositories for Calm sessions and the Archive: post content encrypted; one open Calm session per connected account; disconnect refused while posts are hidden (ADR-0013)
 - [ ] Job runner (ADR), rate-limit-aware retries with backoff, failures reported, never swallowed
 - [x] Honest result: "X hidden, Y could not be hidden (still visible)" (core)
 

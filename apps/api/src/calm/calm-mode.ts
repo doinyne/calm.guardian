@@ -82,6 +82,7 @@ export function createCalmMode({
     if (connectedAccount.status !== 'active') return { outcome: 'needs-sign-in' };
 
     const calmSession = await calmSessions.openFor({
+      accountId: connectedAccount.accountId,
       connectedAccountId: connectedAccount.id,
       period,
       startedAt: now(),
@@ -134,6 +135,7 @@ export function createCalmMode({
 
       try {
         await archive.saveAll({
+          accountId: connectedAccount.accountId,
           calmSessionId: calmSession.id,
           connectedAccountId: connectedAccount.id,
           posts: page.posts,
