@@ -37,6 +37,7 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 | 19 | Accessibility | Both (expectation; Apple accessibility labels) | Labels, contrast, font scaling, screen reader pass | M7 | ⬜ |
 | 20 | First Android upload by hand | Google | Upload the first AAB in Play Console before using EAS Submit | M0b | ⬜ |
 | 21 | Real app icon and splash | Both | 1024×1024 icon, no transparency for iOS; Android adaptive foreground + monochrome. Current assets are Expo placeholders | M7 | ⬜ |
+| 22 | No placeholder or "coming soon" features, and no other companies' names without need | Apple 2.1, 2.3; Google impersonation and IP policy | The "Not available yet" Platforms on Connect an account (Mastodon, Threads, Instagram, Facebook, LinkedIn, X) show only in development and preview builds (`upcomingPlatformsShownIn`). Check a production build before M9 | M9 | 🟨 |
 
 ---
 

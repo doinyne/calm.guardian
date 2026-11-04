@@ -1,4 +1,4 @@
-import { renderRouter, screen } from 'expo-router/testing-library';
+import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 import { fakeAccountAuth } from '@/testing/app-fakes';
 import { APP_ROUTES } from '@/testing/app-root';
@@ -32,5 +32,16 @@ describe('navigation', () => {
     await renderRouter(APP_ROUTES, { initialUrl: '/sign-in' });
 
     expect(screen).toHavePathname('/');
+  });
+
+  it('opens Connect an account from home', async () => {
+    auth.signInAs({ id: 'account-1', email: 'person@example.com' });
+    jest.spyOn(global, 'fetch').mockResolvedValue(Response.json({ connectedAccounts: [] }));
+    await renderRouter(APP_ROUTES, { initialUrl: '/' });
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Connect an account' }));
+
+    expect(screen).toHavePathname('/connect');
+    expect(screen.getByRole('heading', { name: 'Connect an account' })).toBeOnTheScreen();
   });
 });

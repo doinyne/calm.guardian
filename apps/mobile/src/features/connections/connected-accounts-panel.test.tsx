@@ -1,18 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import * as WebBrowser from 'expo-web-browser';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ConnectedAccountsPanel } from './connected-accounts-panel';
-
-jest.mock('expo-web-browser', () => ({
-  ...jest.requireActual<object>('expo-web-browser'),
-  openAuthSessionAsync: jest.fn(),
-}));
-// expo-linking needs the app manifest to build our return link; tests have none.
-jest.mock('expo-linking', () => ({
-  ...jest.requireActual<object>('expo-linking'),
-  createURL: (path: string) => `calmguardian-test://${path}`,
-}));
 
 const ME = {
   id: '6f1c2a4e-0b7d-4c1e-9a3f-2d5e8b7c6a10',
@@ -34,17 +23,12 @@ function stubApi(initial: (typeof ME)[]) {
       accounts = [];
       return Promise.resolve(new Response(null, { status: 204 }));
     }
-    if (url.endsWith('/connections/bluesky')) {
-      return Promise.resolve(
-        Response.json({ authorizationUrl: 'https://bsky.social/oauth/authorize' }),
-      );
-    }
     return Promise.resolve(Response.json({ connectedAccounts: accounts }));
   });
   return requests;
 }
 
-async function renderPanel() {
+async function renderPanel({ onConnectPress = jest.fn() }: { onConnectPress?: () => void } = {}) {
   // No retries, and no garbage-collection timers left running to keep Jest from exiting.
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -54,9 +38,10 @@ async function renderPanel() {
   });
   await render(
     <QueryClientProvider client={queryClient}>
-      <ConnectedAccountsPanel />
+      <ConnectedAccountsPanel onConnectPress={onConnectPress} />
     </QueryClientProvider>,
   );
+  return { onConnectPress };
 }
 
 afterEach(() => jest.restoreAllMocks());
@@ -71,13 +56,14 @@ describe('connected accounts panel', () => {
     expect(screen.getByText('Bluesky · Connected')).toBeOnTheScreen();
   });
 
-  it('says when nothing is connected yet, and offers to connect Bluesky', async () => {
+  it('says when nothing is connected yet, and offers to connect an account', async () => {
     stubApi([]);
-
-    await renderPanel();
+    const { onConnectPress } = await renderPanel();
 
     expect(await screen.findByText('No accounts connected yet.')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Connect Bluesky' })).toBeOnTheScreen();
+    await fireEvent.press(screen.getByRole('button', { name: 'Connect an account' }));
+
+    expect(onConnectPress).toHaveBeenCalledTimes(1);
   });
 
   it('offers to connect another account once one is connected', async () => {
@@ -88,7 +74,7 @@ describe('connected accounts panel', () => {
     expect(
       await screen.findByRole('button', { name: 'Connect another account' }),
     ).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'Connect Bluesky' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Connect an account' })).toBeNull();
   });
 
   it('disconnects an account and refreshes the list', async () => {
@@ -101,17 +87,5 @@ describe('connected accounts panel', () => {
 
     expect(await screen.findByText('No accounts connected yet.')).toBeOnTheScreen();
     expect(requests).toContain(`DELETE /connections/${ME.id}`);
-  });
-
-  it('explains calmly when the user stops partway through connecting', async () => {
-    stubApi([]);
-    jest.mocked(WebBrowser.openAuthSessionAsync).mockResolvedValue({
-      type: WebBrowser.WebBrowserResultType.CANCEL,
-    });
-    await renderPanel();
-
-    await fireEvent.press(await screen.findByRole('button', { name: 'Connect Bluesky' }));
-
-    await waitFor(() => expect(screen.getByText(/No account was connected/)).toBeOnTheScreen());
   });
 });

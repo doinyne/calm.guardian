@@ -1,4 +1,4 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ScrollView, View } from 'react-native';
 
 import { CalmCore } from '@/components/calm-core';
@@ -10,6 +10,8 @@ import { ConnectedAccountsPanel } from '@/features/connections/connected-account
 
 // The Calm controls arrive with Calm Mode (M3); slice 3 of M1 gives the accounts their real design.
 export default function HomeRoute() {
+  const router = useRouter();
+
   return (
     <Screen className="gap-6 pt-2">
       <View className="flex-row items-center justify-between">
@@ -29,7 +31,7 @@ export default function HomeRoute() {
         </View>
       </View>
       <ScrollView contentContainerClassName="pb-6">
-        <ConnectedAccountsPanel />
+        <ConnectedAccountsPanel onConnectPress={() => router.push('/connect')} />
       </ScrollView>
     </Screen>
   );

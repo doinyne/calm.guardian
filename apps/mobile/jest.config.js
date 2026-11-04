@@ -7,6 +7,9 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.css$': '<rootDir>/jest/css-stub.js',
+    // The app resolves lucide's ES module build, which Jest can't load; its CommonJS build is the same icons.
+    '^lucide-react-native$':
+      '<rootDir>/../../node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
   },
   // jest-expo's defaults, plus UI packages that publish untranspiled JSX or ESM.
   transformIgnorePatterns: [

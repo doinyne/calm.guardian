@@ -8,6 +8,7 @@ export default function AppLayout() {
         name="settings"
         options={{ headerShown: true, title: 'Settings', headerBackButtonDisplayMode: 'minimal' }}
       />
+      <Stack.Screen name="connect/index" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }
