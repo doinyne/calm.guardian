@@ -10,6 +10,7 @@ import { requestLogger } from './http/request-logger';
 import { requireAccount } from './http/require-account';
 import type { Logger } from './logger';
 import { accountRoutes } from './routes/account';
+import { calmRoutes, type CalmDependencies } from './routes/calm';
 import { connectionsRoutes, type ConnectionsDependencies } from './routes/connections';
 import { healthRoutes, type ReadinessCheck } from './routes/health';
 
@@ -22,6 +23,7 @@ export type AppDependencies = {
   verifyAccessToken: VerifyAccessToken;
   deleteAccount: DeleteAccount;
   connections: ConnectionsDependencies;
+  calm: CalmDependencies;
 };
 
 /**
@@ -34,6 +36,7 @@ export function createApp({
   verifyAccessToken,
   deleteAccount,
   connections,
+  calm,
 }: AppDependencies) {
   const signedIn = requireAccount({ verifyAccessToken, logger });
 
@@ -53,7 +56,8 @@ export function createApp({
     )
     .route('/', healthRoutes({ readinessChecks, logger }))
     .route('/', accountRoutes({ requireAccount: signedIn, deleteAccount }))
-    .route('/', connectionsRoutes({ requireAccount: signedIn, logger, ...connections }));
+    .route('/', connectionsRoutes({ requireAccount: signedIn, logger, ...connections }))
+    .route('/', calmRoutes({ requireAccount: signedIn, ...calm }));
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);

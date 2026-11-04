@@ -41,7 +41,29 @@ export type ActivationResult =
   | { outcome: 'in-progress'; calmSessionId: CalmSessionId; hidden: number }
   /** The Platform asked us to slow down. Continue it at `until`. */
   | { outcome: 'waiting'; calmSessionId: CalmSessionId; hidden: number; until: Date }
-  | { outcome: 'needs-sign-in' };
+  | { outcome: 'needs-sign-in' }
+  /** The user turned Calm Mode off. Nothing more to do. */
+  | { outcome: 'off'; calmSessionId: CalmSessionId };
+
+export type TurnOffResult = 'off' | 'already-off' | 'still-activating';
+
+/** How many posts turning Calm Mode on would hide. `more`: there are more than `posts`. */
+export type Preview = { posts: number; more: boolean };
+
+/** A connected account and, while Calm Mode is on or turning on, its Calm session. */
+export type CalmStatus = {
+  connectedAccount: ConnectedAccount;
+  calm: {
+    calmSessionId: CalmSessionId;
+    state: CalmSession['state'];
+    period: CalmPeriod;
+    startedAt: Date;
+    hidden: number;
+  } | null;
+};
+
+/** Counting stops here, so a preview is quick even for a huge account. */
+export const PREVIEW_LIMIT = 1000;
 
 export class ConnectedAccountNotFoundError extends Error {
   override readonly name = 'ConnectedAccountNotFoundError';
@@ -126,6 +148,7 @@ export function createCalmMode({
     const calmSession = await calmSessions.find(calmSessionId);
     if (!calmSession) throw new CalmSessionNotFoundError();
     if (calmSession.state === 'active') return { outcome: 'already-active', calmSessionId };
+    if (calmSession.state === 'ended') return { outcome: 'off', calmSessionId };
     if (calmSession.state === 'failed') {
       return { outcome: 'failed', calmSessionId, reason: calmSession.failure ?? 'backup-failed' };
     }
@@ -148,6 +171,84 @@ export function createCalmMode({
       hidden: await archive.countHidden(calmSessionId),
       stillVisible: retried.stillVisible,
     };
+  }
+
+  /** Counts the posts turning Calm Mode on would hide, without touching them. */
+  async function preview({
+    accountId,
+    connectedAccountId,
+    period,
+    limit = PREVIEW_LIMIT,
+  }: {
+    accountId: AccountId;
+    connectedAccountId: ConnectedAccountId;
+    period: CalmPeriod;
+    limit?: number;
+  }): Promise<Preview> {
+    const connectedAccount = await ownConnectedAccount(accountId, connectedAccountId);
+    let posts = 0;
+    let cursor: string | undefined;
+    do {
+      const page = await platformPosts.listPosts({
+        connectedAccount,
+        period,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      posts += page.posts.length;
+      if (posts > limit) return { posts: limit, more: true };
+      if (posts === limit && page.nextCursor !== undefined) return { posts, more: true };
+      cursor = page.nextCursor;
+    } while (cursor !== undefined);
+    return { posts, more: false };
+  }
+
+  /**
+   * Turns Calm Mode off. Hidden posts stay hidden, safely archived, until the user goes through them
+   * in Review. Not while posts are still being hidden (Dean, 2026-11-04).
+   */
+  async function turnOff({
+    accountId,
+    connectedAccountId,
+  }: {
+    accountId: AccountId;
+    connectedAccountId: ConnectedAccountId;
+  }): Promise<TurnOffResult> {
+    await ownConnectedAccount(accountId, connectedAccountId);
+    const open = await calmSessions.findOpenFor(connectedAccountId);
+    if (!open) return 'already-off';
+    if (open.state === 'activating') return 'still-activating';
+    await calmSessions.end({ calmSessionId: open.id, endedAt: now() });
+    return 'off';
+  }
+
+  /** Every connected account of the Account, with its open Calm session. The server owns this state. */
+  async function status(accountId: AccountId): Promise<CalmStatus[]> {
+    const statuses: CalmStatus[] = [];
+    for (const connectedAccount of await connectedAccounts.listForAccount(accountId)) {
+      const open = await calmSessions.findOpenFor(connectedAccount.id);
+      statuses.push({
+        connectedAccount,
+        calm: open
+          ? {
+              calmSessionId: open.id,
+              state: open.state,
+              period: open.period,
+              startedAt: open.startedAt,
+              hidden: await archive.countHidden(open.id),
+            }
+          : null,
+      });
+    }
+    return statuses;
+  }
+
+  async function ownConnectedAccount(accountId: AccountId, connectedAccountId: ConnectedAccountId) {
+    const connectedAccount = await connectedAccounts.findForAccount({
+      accountId,
+      connectedAccountId,
+    });
+    if (!connectedAccount) throw new ConnectedAccountNotFoundError();
+    return connectedAccount;
   }
 
   /** Start and finish in one go: for tests and small jobs. The job runner uses the two halves. */
@@ -345,7 +446,7 @@ export function createCalmMode({
     return { kind: 'failure', reason };
   }
 
-  return { start, continueActivation, activate, activateAll };
+  return { start, continueActivation, activate, activateAll, preview, turnOff, status };
 }
 
 /** Error details can carry post text or tokens, so logs only ever get the error's name. */

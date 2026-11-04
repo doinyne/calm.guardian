@@ -8,6 +8,7 @@ import {
   type CalmSessions,
   type CalmSessionState,
 } from '../calm/calm-session';
+import type { ConnectedAccountId } from '../connections/connected-account';
 
 export type FakeCalmSession = CalmSession & { claimedUntil?: Date };
 
@@ -47,6 +48,18 @@ export class FakeCalmSessions implements CalmSessions {
   find(calmSessionId: CalmSessionId) {
     const session = this.sessions.find((candidate) => candidate.id === calmSessionId);
     return Promise.resolve(session ? { ...session } : undefined);
+  }
+
+  findOpenFor(connectedAccountId: ConnectedAccountId) {
+    const open = this.sessions.find(
+      (session) => session.connectedAccountId === connectedAccountId && isOpen(session.state),
+    );
+    return Promise.resolve(open ? { ...open } : undefined);
+  }
+
+  end({ calmSessionId }: Parameters<CalmSessions['end']>[0]) {
+    this.moveTo(calmSessionId, 'ended');
+    return Promise.resolve();
   }
 
   saveProgress({ calmSessionId, resumeCursor }: Parameters<CalmSessions['saveProgress']>[0]) {

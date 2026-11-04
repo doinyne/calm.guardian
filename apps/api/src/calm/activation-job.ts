@@ -23,6 +23,7 @@ const NEXT_RUN: Record<
   active: () => null,
   'already-active': () => null,
   failed: () => null,
+  off: () => null,
   // Paused until the user signs in to the Platform again; starting Calm Mode then resumes it.
   'needs-sign-in': () => null,
 };

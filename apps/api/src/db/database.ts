@@ -43,6 +43,7 @@ export type CalmSessionsTable = {
   failed_at: Date | null;
   resume_cursor: string | null;
   claimed_until: Date | null;
+  ended_at: Date | null;
 };
 
 export type ArchivedPostsTable = {
