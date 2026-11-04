@@ -41,6 +41,8 @@ export type CalmSessionsTable = {
   started_at: Date;
   activated_at: Date | null;
   failed_at: Date | null;
+  resume_cursor: string | null;
+  claimed_until: Date | null;
 };
 
 export type ArchivedPostsTable = {

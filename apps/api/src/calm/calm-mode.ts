@@ -6,7 +6,7 @@ import type { ConnectedAccountsRepository } from '../connections/connected-accou
 import type { Logger } from '../logger';
 import type { Archive, BackedUpPost, MediaCopy } from './archive';
 import type { CalmSession, CalmSessionFailure, CalmSessionId, CalmSessions } from './calm-session';
-import type { PlatformPost, PlatformPosts } from './platform-posts';
+import { PlatformRateLimitedError, type PlatformPost, type PlatformPosts } from './platform-posts';
 
 export type CalmModeDependencies = {
   connectedAccounts: Pick<ConnectedAccountsRepository, 'findForAccount' | 'listForAccount'>;
@@ -17,28 +17,45 @@ export type CalmModeDependencies = {
   logger: Logger;
 };
 
+export type StartResult =
+  /** A Calm session is activating (new, or one that was already under way). Continue it. */
+  | { outcome: 'started'; calmSessionId: CalmSessionId }
+  | { outcome: 'already-active'; calmSessionId: CalmSessionId }
+  /** The Platform stopped accepting our sign-in, so the user must connect again first. */
+  | { outcome: 'needs-sign-in' };
+
 export type ActivationResult =
   /** Calm Mode is on. `stillVisible` posts are backed up but couldn't be deleted. */
   | { outcome: 'active'; calmSessionId: CalmSessionId; hidden: number; stillVisible: number }
   | { outcome: 'already-active'; calmSessionId: CalmSessionId }
   /** Nothing was deleted, and Calm Mode is off. */
   | { outcome: 'failed'; calmSessionId: CalmSessionId; reason: CalmSessionFailure }
-  /**
-   * Stopped partway: `hidden` posts are hidden (and safely backed up), the rest aren't yet. The Calm
-   * session is still activating, and activating again carries on from here.
-   */
+  /** Stopped by an error partway. `hidden` posts are hidden and backed up; continuing finishes it. */
   | {
       outcome: 'interrupted';
       calmSessionId: CalmSessionId;
       hidden: number;
       reason: CalmSessionFailure;
     }
-  /** The Platform stopped accepting our sign-in, so the user must connect again first. */
+  /** Reached its deadline. Continue it straight away. */
+  | { outcome: 'in-progress'; calmSessionId: CalmSessionId; hidden: number }
+  /** The Platform asked us to slow down. Continue it at `until`. */
+  | { outcome: 'waiting'; calmSessionId: CalmSessionId; hidden: number; until: Date }
   | { outcome: 'needs-sign-in' };
 
 export class ConnectedAccountNotFoundError extends Error {
   override readonly name = 'ConnectedAccountNotFoundError';
 }
+
+export class CalmSessionNotFoundError extends Error {
+  override readonly name = 'CalmSessionNotFoundError';
+}
+
+/** Why a run stopped before finishing. */
+type Stop =
+  | { kind: 'failure'; reason: CalmSessionFailure }
+  | { kind: 'deadline' }
+  | { kind: 'rate-limited'; until: Date };
 
 /**
  * Turning Calm Mode on (BUILD_PLAN M2, ADR-0011, ADR-0015): for one connected account, work through the
@@ -46,9 +63,12 @@ export class ConnectedAccountNotFoundError extends Error {
  * Platform as soon as that backup is stored. A post from this morning is hidden in seconds, without
  * waiting for years of older posts. No post is ever deleted before its own backup (product rule 1).
  *
- * Safe to retry. A Calm session that's already on is left alone. One that was interrupted resumes:
- * backups are keyed by post, so nothing is stored twice; hidden posts are no longer listed; and
- * Platforms treat deleting a deleted post as done. Retries with backoff belong to the job runner.
+ * `start` opens the Calm session; `continueActivation` does the work, and may stop at a deadline or
+ * when the Platform asks us to slow down. The job runner keeps continuing it until it's done. Progress
+ * is saved as it goes, so every run picks up where the last one stopped.
+ *
+ * Safe to retry: backups are keyed by post, hidden posts are no longer listed, and Platforms treat
+ * deleting a deleted post as done.
  */
 export function createCalmMode({
   connectedAccounts,
@@ -58,7 +78,7 @@ export function createCalmMode({
   now,
   logger,
 }: CalmModeDependencies) {
-  async function activate({
+  async function start({
     accountId,
     connectedAccountId,
     period,
@@ -66,31 +86,19 @@ export function createCalmMode({
     accountId: AccountId;
     connectedAccountId: ConnectedAccountId;
     period: CalmPeriod;
-  }): Promise<ActivationResult> {
+  }): Promise<StartResult> {
     const connectedAccount = await connectedAccounts.findForAccount({
       accountId,
       connectedAccountId,
     });
     if (!connectedAccount) throw new ConnectedAccountNotFoundError();
-    return activateConnectedAccount(connectedAccount, period);
+    return startFor(connectedAccount, period);
   }
 
-  /** "Turn on for all": each connected account gets its own Calm session, whatever happens to the others. */
-  async function activateAll({ accountId, period }: { accountId: AccountId; period: CalmPeriod }) {
-    const results: { connectedAccountId: ConnectedAccountId; result: ActivationResult }[] = [];
-    for (const connectedAccount of await connectedAccounts.listForAccount(accountId)) {
-      results.push({
-        connectedAccountId: connectedAccount.id,
-        result: await activateConnectedAccount(connectedAccount, period),
-      });
-    }
-    return results;
-  }
-
-  async function activateConnectedAccount(
+  async function startFor(
     connectedAccount: ConnectedAccount,
     period: CalmPeriod,
-  ): Promise<ActivationResult> {
+  ): Promise<StartResult> {
     if (connectedAccount.status !== 'active') return { outcome: 'needs-sign-in' };
 
     const calmSession = await calmSessions.openFor({
@@ -99,51 +107,111 @@ export function createCalmMode({
       period,
       startedAt: now(),
     });
-    if (calmSession.state === 'active') {
-      return { outcome: 'already-active', calmSessionId: calmSession.id };
+    return calmSession.state === 'active'
+      ? { outcome: 'already-active', calmSessionId: calmSession.id }
+      : { outcome: 'started', calmSessionId: calmSession.id };
+  }
+
+  /**
+   * Works on an activating Calm session until it's done, or until `deadline` (it always gets through
+   * at least one post, so every run makes progress). Safe to call for a session in any state.
+   */
+  async function continueActivation({
+    calmSessionId,
+    deadline,
+  }: {
+    calmSessionId: CalmSessionId;
+    deadline?: Date;
+  }): Promise<ActivationResult> {
+    const calmSession = await calmSessions.find(calmSessionId);
+    if (!calmSession) throw new CalmSessionNotFoundError();
+    if (calmSession.state === 'active') return { outcome: 'already-active', calmSessionId };
+    if (calmSession.state === 'failed') {
+      return { outcome: 'failed', calmSessionId, reason: calmSession.failure ?? 'backup-failed' };
     }
 
-    const stopped = await hidePeriodNewestFirst(connectedAccount, calmSession);
-    if (stopped) return stopEarly(calmSession, stopped);
+    const connectedAccount = await connectedAccounts.findForAccount({
+      accountId: calmSession.accountId,
+      connectedAccountId: calmSession.connectedAccountId,
+    });
+    if (connectedAccount?.status !== 'active') return { outcome: 'needs-sign-in' };
 
-    // Anything backed up but not yet hidden: a delete that failed, or one that worked just before an
-    // earlier run was interrupted. One more try, and what's left is reported as still visible.
-    const { stillVisible } = await hideBackedUpPosts(connectedAccount, calmSession.id);
-    await calmSessions.markActive({ calmSessionId: calmSession.id, activatedAt: now() });
+    const stopped = await hidePeriodNewestFirst(connectedAccount, calmSession, deadline);
+    if (stopped) return stopEarly(calmSession, stopped);
+    const retried = await retryBackedUpPosts(connectedAccount, calmSessionId);
+    if ('kind' in retried) return stopEarly(calmSession, retried);
+
+    await calmSessions.markActive({ calmSessionId, activatedAt: now() });
     return {
       outcome: 'active',
-      calmSessionId: calmSession.id,
-      hidden: await archive.countHidden(calmSession.id),
-      stillVisible,
+      calmSessionId,
+      hidden: await archive.countHidden(calmSessionId),
+      stillVisible: retried.stillVisible,
     };
   }
 
-  /**
-   * Before anything is hidden, stopping means Calm Mode stays off and nothing changed. After that,
-   * the hidden posts stay hidden and the session stays open for the next run to finish.
-   */
-  async function stopEarly(
-    calmSession: CalmSession,
-    reason: CalmSessionFailure,
-  ): Promise<ActivationResult> {
-    const hidden = await archive.countHidden(calmSession.id);
-    if (hidden > 0) {
-      return { outcome: 'interrupted', calmSessionId: calmSession.id, hidden, reason };
+  /** Start and finish in one go: for tests and small jobs. The job runner uses the two halves. */
+  async function activate(input: Parameters<typeof start>[0]): Promise<ActivationResult> {
+    const started = await start(input);
+    return started.outcome === 'started'
+      ? continueActivation({ calmSessionId: started.calmSessionId })
+      : started;
+  }
+
+  /** "Turn on for all": each connected account gets its own Calm session, whatever happens to the others. */
+  async function activateAll({ accountId, period }: { accountId: AccountId; period: CalmPeriod }) {
+    const results: { connectedAccountId: ConnectedAccountId; result: ActivationResult }[] = [];
+    for (const connectedAccount of await connectedAccounts.listForAccount(accountId)) {
+      const started = await startFor(connectedAccount, period);
+      results.push({
+        connectedAccountId: connectedAccount.id,
+        result:
+          started.outcome === 'started'
+            ? await continueActivation({ calmSessionId: started.calmSessionId })
+            : started,
+      });
     }
-    await calmSessions.markFailed({ calmSessionId: calmSession.id, reason, failedAt: now() });
-    return { outcome: 'failed', calmSessionId: calmSession.id, reason };
+    return results;
   }
 
   /**
-   * Page by page, newest first: back up each post with its files, then delete it straight away.
-   * Returns why it stopped early, if it did. A delete that fails doesn't stop it: that post stays
-   * visible and backed up, and is tried again at the end.
+   * Stopping before anything is hidden because of an error means Calm Mode stays off and nothing
+   * changed. Otherwise the hidden posts stay hidden and the session stays open to be continued.
+   */
+  async function stopEarly(calmSession: CalmSession, stop: Stop): Promise<ActivationResult> {
+    const calmSessionId = calmSession.id;
+    const hidden = await archive.countHidden(calmSessionId);
+    switch (stop.kind) {
+      case 'deadline':
+        return { outcome: 'in-progress', calmSessionId, hidden };
+      case 'rate-limited':
+        return { outcome: 'waiting', calmSessionId, hidden, until: stop.until };
+      case 'failure':
+        if (hidden > 0) {
+          return { outcome: 'interrupted', calmSessionId, hidden, reason: stop.reason };
+        }
+        await calmSessions.markFailed({ calmSessionId, reason: stop.reason, failedAt: now() });
+        return { outcome: 'failed', calmSessionId, reason: stop.reason };
+    }
+  }
+
+  /**
+   * Page by page, newest first, from where the last run stopped: back up each post with its files,
+   * then delete it straight away. A delete that fails doesn't stop it: that post stays visible and
+   * backed up, and is tried again at the end.
    */
   async function hidePeriodNewestFirst(
     connectedAccount: ConnectedAccount,
     calmSession: CalmSession,
-  ): Promise<CalmSessionFailure | undefined> {
-    let cursor: string | undefined;
+    deadline: Date | undefined,
+  ): Promise<Stop | undefined> {
+    let cursor = calmSession.resumeCursor ?? undefined;
+    let postsThisRun = 0;
+    // Posts this session has backed up but couldn't hide. They get one retry at the end, so a post the
+    // Platform won't delete can't take up the start of every run.
+    const alreadyTried = new Set(
+      (await archive.listNotHidden(calmSession.id)).map((post) => post.uri),
+    );
     do {
       let page;
       try {
@@ -153,17 +221,27 @@ export function createCalmMode({
           ...(cursor === undefined ? {} : { cursor }),
         });
       } catch (error) {
-        logFailure(error, calmSession, 'Could not list posts; stopped');
-        return 'could-not-read-posts';
+        return stopFor(error, calmSession.id, 'could-not-read-posts', 'Could not list posts');
       }
 
       for (const post of page.posts) {
+        if (alreadyTried.has(post.uri)) continue;
+        if (deadline && postsThisRun > 0 && now() >= deadline) return { kind: 'deadline' };
+        postsThisRun += 1;
+
         const backup = await backUp(connectedAccount, calmSession, post);
-        if (backup.failure) return backup.failure;
-        await hide(connectedAccount, calmSession.id, backup.post);
+        if ('kind' in backup) return backup;
+        const hidden = await hide(connectedAccount, calmSession.id, backup);
+        if (typeof hidden === 'object') return hidden;
+        if (hidden === 'still-visible') alreadyTried.add(post.uri);
       }
 
       cursor = page.nextCursor;
+      // Saved after each page, so the next run starts here rather than re-listing done pages.
+      await calmSessions.saveProgress({
+        calmSessionId: calmSession.id,
+        resumeCursor: cursor ?? null,
+      });
     } while (cursor !== undefined);
     return undefined;
   }
@@ -173,51 +251,56 @@ export function createCalmMode({
     connectedAccount: ConnectedAccount,
     calmSession: CalmSession,
     post: PlatformPost,
-  ): Promise<
-    { failure: CalmSessionFailure; post?: never } | { failure?: never; post: BackedUpPost }
-  > {
+  ): Promise<BackedUpPost | Stop> {
     let media;
     try {
       media = await copyMedia(connectedAccount, post);
     } catch (error) {
-      logFailure(error, calmSession, "Could not fetch a post's files; stopped before hiding it");
-      return { failure: 'could-not-read-posts' };
+      return stopFor(
+        error,
+        calmSession.id,
+        'could-not-read-posts',
+        "Could not fetch a post's files",
+      );
     }
 
     try {
-      return {
-        post: await archive.save({
-          accountId: connectedAccount.accountId,
-          calmSessionId: calmSession.id,
-          connectedAccountId: connectedAccount.id,
-          post,
-          media,
-          backedUpAt: now(),
-        }),
-      };
+      return await archive.save({
+        accountId: connectedAccount.accountId,
+        calmSessionId: calmSession.id,
+        connectedAccountId: connectedAccount.id,
+        post,
+        media,
+        backedUpAt: now(),
+      });
     } catch (error) {
-      logFailure(error, calmSession, 'Could not back up a post; stopped before hiding it');
-      return { failure: 'backup-failed' };
+      return stopFor(error, calmSession.id, 'backup-failed', 'Could not back up a post');
     }
   }
 
-  /** Deletes a backed-up post and records it as hidden. Returns whether it's now hidden. */
+  /**
+   * Deletes a backed-up post and records it as hidden. A refused delete leaves the post visible and
+   * is reported; being asked to slow down stops the run.
+   */
   async function hide(
     connectedAccount: ConnectedAccount,
     calmSessionId: CalmSessionId,
     post: BackedUpPost,
-  ): Promise<boolean> {
+  ): Promise<'hidden' | 'still-visible' | Stop> {
     try {
       await platformPosts.deletePost({ connectedAccount, post });
     } catch (error) {
+      if (error instanceof PlatformRateLimitedError) {
+        return { kind: 'rate-limited', until: error.retryAt };
+      }
       logger.warn(
         { calmSessionId, archivedPostId: post.id, errorName: errorName(error) },
         'Could not delete a backed-up post; it is still visible',
       );
-      return false;
+      return 'still-visible';
     }
     await archive.markHidden({ archivedPostId: post.id, hiddenAt: now() });
-    return true;
+    return 'hidden';
   }
 
   /** One at a time, so a post with large files doesn't hold a whole page of them in memory. */
@@ -232,23 +315,37 @@ export function createCalmMode({
     return copies;
   }
 
-  /** Tries once more to hide whatever the session has backed up but not hidden. */
-  async function hideBackedUpPosts(
+  /**
+   * One more try at whatever the session has backed up but not hidden: a delete that failed, or one
+   * that worked just before an earlier run was interrupted. What's left is reported as still visible.
+   */
+  async function retryBackedUpPosts(
     connectedAccount: ConnectedAccount,
     calmSessionId: CalmSessionId,
-  ) {
+  ): Promise<{ stillVisible: number } | Stop> {
     let stillVisible = 0;
     for (const post of await archive.listNotHidden(calmSessionId)) {
-      if (!(await hide(connectedAccount, calmSessionId, post))) stillVisible += 1;
+      const hidden = await hide(connectedAccount, calmSessionId, post);
+      if (typeof hidden === 'object') return hidden;
+      if (hidden === 'still-visible') stillVisible += 1;
     }
     return { stillVisible };
   }
 
-  function logFailure(error: unknown, calmSession: CalmSession, message: string) {
-    logger.warn({ calmSessionId: calmSession.id, errorName: errorName(error) }, message);
+  /** A Platform asking us to slow down is a wait, not a failure. Anything else is logged by name. */
+  function stopFor(
+    error: unknown,
+    calmSessionId: CalmSessionId,
+    reason: CalmSessionFailure,
+    message: string,
+  ): Stop {
+    if (error instanceof PlatformRateLimitedError)
+      return { kind: 'rate-limited', until: error.retryAt };
+    logger.warn({ calmSessionId, errorName: errorName(error) }, `${message}; stopped`);
+    return { kind: 'failure', reason };
   }
 
-  return { activate, activateAll };
+  return { start, continueActivation, activate, activateAll };
 }
 
 /** Error details can carry post text or tokens, so logs only ever get the error's name. */

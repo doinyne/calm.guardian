@@ -23,7 +23,19 @@ export type MediaRef = { cid: string; mimeType: string };
 
 export type PostsPage = { posts: readonly PlatformPost[]; nextCursor?: string };
 
-/** What Calm Mode needs from a Platform (the Platform adapter's port). */
+/**
+ * The Platform asked us to slow down (Bluesky: HTTP 429). Not a failure: the work waits until
+ * `retryAt` and carries on (ADR-0015).
+ */
+export class PlatformRateLimitedError extends Error {
+  override readonly name = 'PlatformRateLimitedError';
+
+  constructor(readonly retryAt: Date) {
+    super(`Rate limited until ${retryAt.toISOString()}`);
+  }
+}
+
+/** What Calm Mode needs from a Platform (the Platform adapter's port). Any call may throw `PlatformRateLimitedError`. */
 export interface PlatformPosts {
   /**
    * The account's own posts and replies made within the period, a page at a time. No `nextCursor`
