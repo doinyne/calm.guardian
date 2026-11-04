@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { apiClient } from '@/api/client';
 
@@ -15,6 +16,17 @@ export function useReview() {
       return response.json();
     },
   });
+}
+
+/**
+ * Refreshes Review whenever `calmState` changes. Posts are hidden by the server in the background,
+ * so the app learns about them through Calm Mode's status, not through anything it did itself.
+ */
+export function useReviewFollows(calmState: string) {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: REVIEW_QUERY_KEY });
+  }, [calmState, queryClient]);
 }
 
 export type ReviewPost = NonNullable<ReturnType<typeof useReview>['data']>['posts'][number];

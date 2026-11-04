@@ -7,7 +7,10 @@ import type { CalmAccount } from './use-calm';
 
 const ME = aCalmAccount();
 
-async function renderHome(accounts: () => CalmAccount[], routes = {}) {
+async function renderHome(
+  accounts: () => CalmAccount[],
+  routes: Parameters<typeof stubApi>[0]['routes'] = {},
+) {
   const requests = stubApi({ accounts, routes });
   const onTurnOn = jest.fn();
   const onConnect = jest.fn();
@@ -130,4 +133,49 @@ describe('home: Calm Mode at a glance', () => {
 
     expect(onConnect).toHaveBeenCalled();
   });
+
+  it('offers Review as soon as Calm Mode is turned off, without reopening the app', async () => {
+    // Home opened before anything was hidden; Calm Mode then hid two posts in the background.
+    let calm: CalmAccount['calm'] = calmSession('active', 2);
+    let hiddenPosts: unknown[] = [];
+    await renderHome(() => [aCalmAccount({ calm })], {
+      [`DELETE /connections/${ME.id}/calm`]: { status: 204 },
+      'GET /review': () => ({
+        body: { posts: hiddenPosts, more: false, toReview: hiddenPosts.length },
+      }),
+    });
+    expect(await screen.findByText('Calm Mode is on')).toBeOnTheScreen();
+    hiddenPosts = [aReviewPost('one'), aReviewPost('two')];
+    confirmAlerts('Turn off');
+    calm = null;
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Turn off Calm Mode for @doinyne.bsky.social' }),
+    );
+
+    expect(await screen.findByRole('button', { name: 'Review hidden posts' })).toBeOnTheScreen();
+    expect(screen.getByText(/2 hidden posts are waiting for you/)).toBeOnTheScreen();
+  });
+
+  it("doesn't nudge towards Review while Calm Mode is still on for those posts", async () => {
+    await renderHome(() => [aCalmAccount({ calm: calmSession('active', 1) })], {
+      'GET /review': { body: { posts: [aReviewPost('one')], more: false, toReview: 1 } },
+    });
+
+    expect(await screen.findByText('Calm Mode is on')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Review hidden posts' })).toBeNull();
+  });
 });
+
+function aReviewPost(id: string) {
+  return {
+    id,
+    connectedAccountId: ME.id,
+    state: 'to-review',
+    text: 'A hidden post',
+    isReply: false,
+    postedAt: '2026-11-04T09:00:00.000Z',
+    hiddenAt: '2026-11-04T12:00:00.000Z',
+    files: [],
+  };
+}

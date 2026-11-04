@@ -6,7 +6,7 @@ import { MonoLabel } from '@/components/mono-label';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
-import { useReview } from '@/features/review/use-review';
+import { useReview, useReviewFollows } from '@/features/review/use-review';
 
 import { accountReadout, turnOffMessage } from './calm-copy';
 import {
@@ -60,9 +60,21 @@ export function CalmHome({
   onReview: () => void;
 }) {
   const status = useCalmStatus();
-  const review = useReview();
-  const hiddenPosts = review.data?.posts.length ?? 0;
   const accounts = status.data ?? [];
+  useReviewFollows(
+    accounts
+      .map(
+        (account) => `${account.id}:${account.calm?.state ?? 'off'}:${account.calm?.hidden ?? 0}`,
+      )
+      .join('|'),
+  );
+  // Review is for after Calm Mode: only posts from accounts where it's off.
+  const calmOff = new Set(accounts.filter((account) => !account.calm).map((account) => account.id));
+  const review = useReview();
+  const reviewable = (review.data?.posts ?? []).filter((post) =>
+    calmOff.has(post.connectedAccountId),
+  );
+  const toReview = reviewable.filter((post) => post.state === 'to-review').length;
   const hero = HERO[overallOf(accounts)];
   const canTurnOnForAll = accounts.length > 1 && accounts.some((account) => account.calm === null);
 
@@ -77,12 +89,12 @@ export function CalmHome({
         </View>
       </View>
 
-      {hiddenPosts > 0 ? (
+      {reviewable.length > 0 ? (
         <View className="gap-3 rounded-xl border border-hope bg-card p-5">
           <MonoLabel className="text-hope">Review</MonoLabel>
           <Text>
-            {review.data?.toReview
-              ? `${review.data.toReview} hidden ${review.data.toReview === 1 ? 'post is' : 'posts are'} waiting for you, safely backed up. Look whenever you're ready.`
+            {toReview > 0
+              ? `${toReview} hidden ${toReview === 1 ? 'post is' : 'posts are'} waiting for you, safely backed up. Look whenever you're ready.`
               : 'Your hidden posts are safely backed up. You can bring any of them back.'}
           </Text>
           <Button variant="outline" onPress={onReview}>
