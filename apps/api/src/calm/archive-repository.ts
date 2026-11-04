@@ -39,8 +39,8 @@ export function createArchiveRepository({
   return {
     async save({ accountId, calmSessionId, connectedAccountId, post, media, backedUpAt }) {
       // One transaction: the post and all its files are stored together, or not at all.
-      await db.transaction().execute(async (trx) => {
-        const { id } = await trx
+      const id = await db.transaction().execute(async (trx) => {
+        const { id: archivedPostId } = await trx
           .insertInto('archived_posts')
           .values({
             account_id: accountId,
@@ -77,7 +77,7 @@ export function createArchiveRepository({
           await trx
             .insertInto('archived_media')
             .values({
-              archived_post_id: id,
+              archived_post_id: archivedPostId,
               cid: copy.cid,
               mime_type: copy.mimeType,
               size_bytes: copy.bytes.byteLength,
@@ -92,7 +92,9 @@ export function createArchiveRepository({
             )
             .execute();
         }
+        return archivedPostId;
       });
+      return { id: id as ArchivedPostId, connectedAccountId, uri: post.uri, backedUpAt };
     },
 
     async listNotHidden(calmSessionId) {
@@ -101,7 +103,7 @@ export function createArchiveRepository({
         .select(['id', 'connected_account_id', 'uri', 'backed_up_at'])
         .where('calm_session_id', '=', calmSessionId)
         .where('hidden_at', 'is', null)
-        .orderBy('posted_at')
+        .orderBy('posted_at', 'desc')
         .execute();
       return rows.map((row) => ({
         id: row.id as ArchivedPostId,

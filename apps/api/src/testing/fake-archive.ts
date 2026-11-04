@@ -48,24 +48,22 @@ export class FakeArchive implements Archive {
     this.savesLeft -= 1;
 
     const key = `${connectedAccountId} ${post.uri}`;
-    const existing = this.entries.get(key);
-    this.entries.set(key, {
-      id: existing?.id ?? (randomUUID() as ArchivedPostId),
+    const backedUp: BackedUpPost = {
+      id: this.entries.get(key)?.id ?? (randomUUID() as ArchivedPostId),
       connectedAccountId,
       uri: post.uri,
       backedUpAt,
-      calmSessionId,
-      post,
-      media,
-    });
+    };
+    this.entries.set(key, { ...backedUp, calmSessionId, post, media });
     this.operations.push(`back up ${post.uri}`);
-    return Promise.resolve();
+    return Promise.resolve(backedUp);
   }
 
   listNotHidden(calmSessionId: CalmSessionId) {
     return Promise.resolve(
       this.all()
         .filter((entry) => entry.calmSessionId === calmSessionId && !entry.hiddenAt)
+        .sort((a, b) => b.post.createdAt.getTime() - a.post.createdAt.getTime())
         .map(({ id, connectedAccountId, uri, backedUpAt }) => ({
           id,
           connectedAccountId,

@@ -45,6 +45,8 @@ export function createBlueskyPosts({
   logger: Logger;
 }): PlatformPosts {
   return {
+    // Bluesky's cursor is the last record key returned, not a position, so Calm Mode can delete posts
+    // between pages without the next page skipping any.
     async listPosts({ connectedAccount, period, cursor }) {
       const repo = await repoFor(connectedAccount.externalId);
       const page = await repo.listPostRecords({

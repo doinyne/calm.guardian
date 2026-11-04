@@ -30,6 +30,10 @@ export function aPost(createdAt: string, { mediaCount = 0 } = {}): PlatformPost 
   };
 }
 
+function newestFirst(a: PlatformPost, b: PlatformPost) {
+  return b.createdAt.getTime() - a.createdAt.getTime() || b.uri.localeCompare(a.uri);
+}
+
 /**
  * An in-memory Platform. Lists newest first, a page at a time, like Bluesky. It can be told to fail,
  * and it writes what it does to `operations` so tests can check the order of backups and deletes.
@@ -46,6 +50,7 @@ export class FakePlatformPosts implements PlatformPosts {
   ) {}
 
   publish(connectedAccountId: ConnectedAccountId, ...posts: PlatformPost[]) {
+    for (const post of posts) this.published.set(post.uri, post);
     this.posts.set(connectedAccountId, [...this.postsOf(connectedAccountId), ...posts]);
   }
 
@@ -69,14 +74,17 @@ export class FakePlatformPosts implements PlatformPosts {
   listPosts({ connectedAccount, period, cursor }: Parameters<PlatformPosts['listPosts']>[0]) {
     if (this.listingFails) return Promise.reject(new Error('Platform unavailable'));
 
+    // Like Bluesky, the cursor marks the last post returned rather than a position, so deleting posts
+    // while paging doesn't make the next page skip any.
     const matching = this.postsOf(connectedAccount.id)
       .filter((post) => isInCalmPeriod(period, post.createdAt))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    const start = cursor === undefined ? 0 : Number(cursor);
-    const end = start + this.pageSize;
+      .sort(newestFirst)
+      .filter((post) => cursor === undefined || newestFirst(post, this.byUri(cursor)) > 0);
+    const posts = matching.slice(0, this.pageSize);
+    const last = posts.at(-1);
     const page: PostsPage = {
-      posts: matching.slice(start, end),
-      ...(end < matching.length ? { nextCursor: String(end) } : {}),
+      posts,
+      ...(last && matching.length > posts.length ? { nextCursor: last.uri } : {}),
     };
     this.operations.push(`list ${page.posts.length}`);
     return Promise.resolve(page);
@@ -98,6 +106,15 @@ export class FakePlatformPosts implements PlatformPosts {
     );
     this.operations.push(`delete ${post.uri}`);
     return Promise.resolve();
+  }
+
+  /** Every post ever published here, deleted or not, so a cursor still works after a delete. */
+  private readonly published = new Map<string, PlatformPost>();
+
+  private byUri(uri: string): PlatformPost {
+    const post = this.published.get(uri);
+    if (!post) throw new Error(`Unknown cursor ${uri}`);
+    return post;
   }
 
   private postsOf(connectedAccountId: ConnectedAccountId) {
