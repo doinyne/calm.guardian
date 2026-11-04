@@ -103,8 +103,8 @@ logged with IDs only, never content.
   staging, so staging gets a smoke test of a full activation before production.
 
 ## Open questions
-- **The Sweep interval.** More often hides new posts sooner, but costs more requests. Proposal: every
-  5 minutes.
+- ~~**The Sweep interval.**~~ Decided (M4): every 5 minutes by default, set by `SWEEP_INTERVAL_SECONDS`
+  (at least 10 seconds), so it can be shortened locally to watch it work.
 - **What to tell the user** when a big activation will take hours because of Bluesky's limits, for
   example: "Hiding 8,000 posts, newest first. Your most recent posts are already hidden. This will take
   about 2 hours, and it carries on if you close the app." (M3.)

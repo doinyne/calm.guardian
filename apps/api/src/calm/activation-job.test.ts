@@ -11,6 +11,7 @@ import { aPost, FakePlatformPosts } from '../testing/fake-platform-posts';
 import { createInProcessJobQueue } from '../jobs/in-process-job-queue';
 import type { JobQueue } from '../jobs/job-queue';
 import { captureLogs } from '../testing/log-capture';
+import { NO_JOB_HANDLERS } from '../testing/no-job-handlers';
 import { createActivationJob } from './activation-job';
 import { createCalmMode } from './calm-mode';
 import type { CalmSessionId } from './calm-session';
@@ -174,9 +175,9 @@ describe('the activation job', () => {
       const handlers: { runJob?: ReturnType<typeof createActivationJob> } = {};
       const queue = createInProcessJobQueue({
         handlers: () => ({
+          ...NO_JOB_HANDLERS,
           'activate-calm-mode': (payload) =>
             handlers.runJob ? handlers.runJob(payload) : Promise.reject(new Error('not ready')),
-          'restore-all': () => Promise.resolve(),
         }),
         logger: captureLogs().logger,
         now: () => new Date(),

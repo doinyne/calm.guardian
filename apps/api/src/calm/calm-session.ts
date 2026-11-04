@@ -66,6 +66,9 @@ export interface CalmSessions {
 
   find(calmSessionId: CalmSessionId): Promise<CalmSession | undefined>;
 
+  /** Every Calm session that's on, for the Sweep. */
+  listActive(): Promise<CalmSessionId[]>;
+
   /** The connected account's activating or active session, if it has one. */
   findOpenFor(connectedAccountId: ConnectedAccountId): Promise<CalmSession | undefined>;
 

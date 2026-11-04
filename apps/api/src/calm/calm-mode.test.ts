@@ -23,14 +23,20 @@ function setUp({ pageSize }: { pageSize?: number } = {}) {
   const platform = new FakePlatformPosts(operations, pageSize);
   const archive = new FakeArchive(operations);
   const calmSessions = new FakeCalmSessions();
+  let clock = NOW;
   const calmMode = createCalmMode({
     connectedAccounts,
     platformPosts: platform,
     archive,
     calmSessions,
-    now: () => NOW,
+    now: () => clock,
     logger: captureLogs().logger,
   });
+  /** Moves the clock on, as time passes while Calm Mode is on. */
+  const later = (minutes: number) => {
+    clock = new Date(clock.getTime() + minutes * 60_000);
+    return clock;
+  };
 
   const connect = (handle: string, accountId = ME) =>
     connectedAccounts.connect({
@@ -40,7 +46,16 @@ function setUp({ pageSize }: { pageSize?: number } = {}) {
       handle: `${handle}.bsky.social`,
     });
 
-  return { calmMode, connectedAccounts, platform, archive, calmSessions, operations, connect };
+  return {
+    calmMode,
+    connectedAccounts,
+    platform,
+    archive,
+    calmSessions,
+    operations,
+    connect,
+    later,
+  };
 }
 
 /** `count` posts, one an hour, going back from just before now. */
@@ -609,5 +624,98 @@ describe('the status of each connected account', () => {
       { connectedAccount: calm, calm: { state: 'active', hidden: 2, period: LAST_7_DAYS } },
       { connectedAccount: standingBy, calm: null },
     ]);
+  });
+});
+
+describe('the Sweep: hiding posts made while Calm Mode is on (M4)', () => {
+  /** An account with Calm Mode on, then some posts made afterwards. */
+  async function calmModeOn(setup: ReturnType<typeof setUp>) {
+    const account = await setup.connect('dean');
+    const activation = await setup.calmMode.activate({
+      accountId: ME,
+      connectedAccountId: account.id,
+      period: LAST_7_DAYS,
+    });
+    if (activation.outcome !== 'active') throw new Error('expected Calm Mode on');
+    return { account, calmSessionId: activation.calmSessionId };
+  }
+
+  it('backs up and hides posts made since Calm Mode was turned on', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await calmModeOn(setup);
+    const madeDuring = aPost(setup.later(10).toISOString());
+    setup.platform.publish(account.id, madeDuring);
+    setup.later(5);
+    setup.operations.length = 0;
+
+    const result = await setup.calmMode.sweep({ calmSessionId });
+
+    expect(result).toEqual({ outcome: 'swept', calmSessionId, hidden: 1 });
+    expect(setup.platform.visibleUris(account.id)).toEqual([]);
+    expect(setup.operations.indexOf(`back up ${madeDuring.uri}`)).toBeLessThan(
+      setup.operations.indexOf(`delete ${madeDuring.uri}`),
+    );
+  });
+
+  it('adds swept posts to the same Calm session, so they show in its count and in Review', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await calmModeOn(setup);
+    setup.platform.publish(account.id, aPost(setup.later(10).toISOString()));
+    setup.later(5);
+
+    await setup.calmMode.sweep({ calmSessionId });
+
+    const [status] = await setup.calmMode.status(ME);
+    expect(status?.calm).toMatchObject({ calmSessionId, hidden: 1 });
+    expect(setup.archive.all().map((entry) => entry.calmSessionId)).toEqual([calmSessionId]);
+  });
+
+  it('leaves posts outside Calm Mode alone', async () => {
+    const setup = setUp();
+    const older = aPost('2026-10-01T09:00:00.000Z');
+    const { account, calmSessionId } = await calmModeOn(setup);
+    setup.platform.publish(account.id, older);
+    setup.later(5);
+
+    const result = await setup.calmMode.sweep({ calmSessionId });
+
+    expect(result).toEqual({ outcome: 'swept', calmSessionId, hidden: 0 });
+    expect(setup.platform.visibleUris(account.id)).toEqual([older.uri]);
+  });
+
+  it('does nothing once Calm Mode is off', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await calmModeOn(setup);
+    await setup.calmMode.turnOff({ accountId: ME, connectedAccountId: account.id });
+    setup.platform.publish(account.id, aPost(setup.later(10).toISOString()));
+
+    const result = await setup.calmMode.sweep({ calmSessionId });
+
+    expect(result).toEqual({ outcome: 'not-on', calmSessionId });
+    expect(setup.platform.visibleUris(account.id)).toHaveLength(1);
+  });
+
+  it('waits when the Platform asks it to slow down', async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await calmModeOn(setup);
+    setup.platform.publish(account.id, aPost(setup.later(10).toISOString()));
+    const resetAt = setup.later(60);
+    setup.platform.rateLimitNextDelete(resetAt);
+
+    const result = await setup.calmMode.sweep({ calmSessionId });
+
+    expect(result).toEqual({ outcome: 'waiting', calmSessionId, until: resetAt });
+  });
+
+  it("doesn't touch the activation's saved place", async () => {
+    const setup = setUp();
+    const { account, calmSessionId } = await calmModeOn(setup);
+    await setup.calmSessions.saveProgress({ calmSessionId, resumeCursor: 'activation-cursor' });
+    setup.platform.publish(account.id, aPost(setup.later(10).toISOString()));
+    setup.later(5);
+
+    await setup.calmMode.sweep({ calmSessionId });
+
+    expect((await setup.calmSessions.find(calmSessionId))?.resumeCursor).toBe('activation-cursor');
   });
 });

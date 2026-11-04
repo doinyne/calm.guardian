@@ -45,6 +45,17 @@ export type ActivationResult =
   /** The user turned Calm Mode off. Nothing more to do. */
   | { outcome: 'off'; calmSessionId: CalmSessionId };
 
+export type SweepResult =
+  /** `hidden`: posts this sweep backed up and hid. */
+  | { outcome: 'swept'; calmSessionId: CalmSessionId; hidden: number }
+  | { outcome: 'in-progress'; calmSessionId: CalmSessionId }
+  | { outcome: 'waiting'; calmSessionId: CalmSessionId; until: Date }
+  /** Stopped by an error; the next sweep tries again. */
+  | { outcome: 'interrupted'; calmSessionId: CalmSessionId; reason: CalmSessionFailure }
+  /** Calm Mode isn't on for this session (still turning on, or turned off). */
+  | { outcome: 'not-on'; calmSessionId: CalmSessionId }
+  | { outcome: 'needs-sign-in'; calmSessionId: CalmSessionId };
+
 export type TurnOffResult = 'off' | 'already-off' | 'still-activating';
 
 /** How many posts turning Calm Mode on would hide. `more`: there are more than `posts`. */
@@ -159,7 +170,14 @@ export function createCalmMode({
     });
     if (connectedAccount?.status !== 'active') return { outcome: 'needs-sign-in' };
 
-    const stopped = await hidePeriodNewestFirst(connectedAccount, calmSession, deadline);
+    const stopped = await hidePeriodNewestFirst(connectedAccount, calmSession, {
+      period: calmSession.period,
+      deadline,
+      ...(calmSession.resumeCursor === null ? {} : { startCursor: calmSession.resumeCursor }),
+      // Saved after each page, so the next run starts here rather than re-listing done pages.
+      onPageDone: (nextCursor) =>
+        calmSessions.saveProgress({ calmSessionId, resumeCursor: nextCursor ?? null }),
+    });
     if (stopped) return stopEarly(calmSession, stopped);
     const retried = await retryBackedUpPosts(connectedAccount, calmSessionId);
     if ('kind' in retried) return stopEarly(calmSession, retried);
@@ -170,6 +188,53 @@ export function createCalmMode({
       calmSessionId,
       hidden: await archive.countHidden(calmSessionId),
       stillVisible: retried.stillVisible,
+    };
+  }
+
+  /**
+   * The Sweep (M4): while Calm Mode is on, backs up and hides posts made since it was turned on, newest
+   * first, by the same rules as turning it on. Swept posts join the same Calm session, so they're
+   * counted and reviewed with the rest. Runs on a schedule (ADR-0015).
+   */
+  async function sweep({
+    calmSessionId,
+    deadline,
+  }: {
+    calmSessionId: CalmSessionId;
+    deadline?: Date;
+  }): Promise<SweepResult> {
+    const calmSession = await calmSessions.find(calmSessionId);
+    if (!calmSession) throw new CalmSessionNotFoundError();
+    if (calmSession.state !== 'active') return { outcome: 'not-on', calmSessionId };
+
+    const connectedAccount = await connectedAccounts.findForAccount({
+      accountId: calmSession.accountId,
+      connectedAccountId: calmSession.connectedAccountId,
+    });
+    if (connectedAccount?.status !== 'active') return { outcome: 'needs-sign-in', calmSessionId };
+
+    const hiddenBefore = await archive.countHidden(calmSessionId);
+    // Everything since the period Calm Mode was turned on for, up to now.
+    const stopped =
+      (await hidePeriodNewestFirst(connectedAccount, calmSession, {
+        period: { from: calmSession.period.to, to: now() },
+        deadline,
+      })) ?? (await retryBackedUpPosts(connectedAccount, calmSessionId));
+
+    if ('kind' in stopped) {
+      switch (stopped.kind) {
+        case 'deadline':
+          return { outcome: 'in-progress', calmSessionId };
+        case 'rate-limited':
+          return { outcome: 'waiting', calmSessionId, until: stopped.until };
+        case 'failure':
+          return { outcome: 'interrupted', calmSessionId, reason: stopped.reason };
+      }
+    }
+    return {
+      outcome: 'swept',
+      calmSessionId,
+      hidden: (await archive.countHidden(calmSessionId)) - hiddenBefore,
     };
   }
 
@@ -304,9 +369,20 @@ export function createCalmMode({
   async function hidePeriodNewestFirst(
     connectedAccount: ConnectedAccount,
     calmSession: CalmSession,
-    deadline: Date | undefined,
+    {
+      period,
+      deadline,
+      startCursor,
+      onPageDone,
+    }: {
+      period: CalmPeriod;
+      deadline: Date | undefined;
+      startCursor?: string;
+      /** Called with the next page's cursor, to save the place for the next run. */
+      onPageDone?: (nextCursor: string | undefined) => Promise<void>;
+    },
   ): Promise<Stop | undefined> {
-    let cursor = calmSession.resumeCursor ?? undefined;
+    let cursor = startCursor;
     let postsThisRun = 0;
     // Posts this session has backed up but couldn't hide. They get one retry at the end, so a post the
     // Platform won't delete can't take up the start of every run.
@@ -318,7 +394,7 @@ export function createCalmMode({
       try {
         page = await platformPosts.listPosts({
           connectedAccount,
-          period: calmSession.period,
+          period,
           ...(cursor === undefined ? {} : { cursor }),
         });
       } catch (error) {
@@ -338,11 +414,7 @@ export function createCalmMode({
       }
 
       cursor = page.nextCursor;
-      // Saved after each page, so the next run starts here rather than re-listing done pages.
-      await calmSessions.saveProgress({
-        calmSessionId: calmSession.id,
-        resumeCursor: cursor ?? null,
-      });
+      await onPageDone?.(cursor);
     } while (cursor !== undefined);
     return undefined;
   }
@@ -446,7 +518,7 @@ export function createCalmMode({
     return { kind: 'failure', reason };
   }
 
-  return { start, continueActivation, activate, activateAll, preview, turnOff, status };
+  return { start, continueActivation, activate, activateAll, preview, turnOff, status, sweep };
 }
 
 /** Error details can carry post text or tokens, so logs only ever get the error's name. */
