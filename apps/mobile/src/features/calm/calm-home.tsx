@@ -36,7 +36,7 @@ const HERO: Record<Overall, { core: CoreState; label: string; heading: string; b
     core: 'on',
     label: 'Calm Mode · On',
     heading: 'Calm Mode is on',
-    body: 'Your hidden posts are safely backed up. Nothing is lost.',
+    body: 'Your hidden posts are safely backed up. Anything new you post is hidden too, within a few minutes.',
   },
 };
 

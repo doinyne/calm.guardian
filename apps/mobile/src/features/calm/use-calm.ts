@@ -8,6 +8,8 @@ const CONNECTIONS_QUERY_KEY = ['connections'] as const;
 
 /** How often to refresh while posts are being hidden, so progress moves on screen. */
 const PROGRESS_REFRESH_MS = 3_000;
+/** While Calm Mode is on, so posts the Sweep hides show up in the count. */
+const CALM_REFRESH_MS = 30_000;
 
 /** Who Calm Mode is being turned on for: one connected account, or all of them. */
 export type CalmTarget = { connectedAccountId: string } | 'all';
@@ -21,10 +23,13 @@ export function useCalmStatus() {
       if (!response.ok) throw new Error(`Calm status responded ${response.status}`);
       return (await response.json()).connectedAccounts;
     },
-    refetchInterval: (query) =>
-      query.state.data?.some((account) => account.calm?.state === 'activating')
-        ? PROGRESS_REFRESH_MS
-        : false,
+    refetchInterval: (query) => {
+      const accounts = query.state.data ?? [];
+      if (accounts.some((account) => account.calm?.state === 'activating')) {
+        return PROGRESS_REFRESH_MS;
+      }
+      return accounts.some((account) => account.calm?.state === 'active') ? CALM_REFRESH_MS : false;
+    },
   });
 }
 
