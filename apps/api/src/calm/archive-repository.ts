@@ -1,3 +1,4 @@
+import type { Selectable } from 'kysely';
 import { z } from 'zod';
 
 import {
@@ -7,16 +8,26 @@ import {
 import type { CountHiddenPosts } from '../connections/connection-removal';
 import type { SecretBox } from '../crypto/secret-box';
 import type { Db } from '../db/database';
-import type { Archive, ArchivedPostId, MediaCopy } from './archive';
-import type { PlatformPost, PostUri } from './platform-posts';
+import type { AccountId } from '../accounts/account-id';
+import type { ArchivedPostsTable } from '../db/database';
+import type {
+  Archive,
+  ArchivedPostId,
+  MediaCopy,
+  ReviewArchive,
+  ReviewItem,
+  ReviewState,
+} from './archive';
+import type { MediaRef, PlatformPost, PostUri } from './platform-posts';
 
-export type ArchiveRepository = Archive & {
-  countHiddenForConnectedAccount: CountHiddenPosts;
-  /** A backed-up post as it was, for Review and Restore. */
-  readPost: (archivedPostId: ArchivedPostId) => Promise<PlatformPost | undefined>;
-  /** Copies of the post's files, decrypted. */
-  readMedia: (archivedPostId: ArchivedPostId) => Promise<MediaCopy[]>;
-};
+export type ArchiveRepository = Archive &
+  ReviewArchive & {
+    countHiddenForConnectedAccount: CountHiddenPosts;
+    /** A backed-up post as it was, for Review and Restore. */
+    readPost: (archivedPostId: ArchivedPostId) => Promise<PlatformPost | undefined>;
+    /** Copies of the post's files, decrypted. */
+    readMedia: (archivedPostId: ArchivedPostId) => Promise<MediaCopy[]>;
+  };
 
 /**
  * Sealed with the post's identity (and the file's) as context, so a value copied onto another row
@@ -129,6 +140,92 @@ export function createArchiveRepository({
       return countWhere('connected_account_id', connectedAccountId);
     },
 
+    async listHidden({ accountId, limit }) {
+      const rows = await selectReviewRows()
+        .where('account_id', '=', accountId)
+        .where('hidden_at', 'is not', null)
+        .where('restored_at', 'is', null)
+        // Still to review first, then kept hidden; newest first within each.
+        .orderBy((eb) => eb('kept_hidden_at', 'is not', null))
+        .orderBy('posted_at', 'desc')
+        .limit(limit + 1)
+        .execute();
+      const page = rows.slice(0, limit);
+      const files = await mediaRefsOf(page.map((row) => row.id));
+      return {
+        items: page.map((row) => withMedia(toReviewItem(row), files.get(row.id) ?? [])),
+        more: rows.length > limit,
+      };
+    },
+
+    async find({ accountId, archivedPostId }) {
+      const row = await selectReviewRows()
+        .where('id', '=', archivedPostId)
+        .where('account_id', '=', accountId)
+        .where('hidden_at', 'is not', null)
+        .executeTakeFirst();
+      if (!row) return undefined;
+      const media = await readMediaOf(row);
+      return {
+        ...withMedia(
+          toReviewItem(row),
+          media.map(({ cid, mimeType }) => ({ cid, mimeType })),
+        ),
+        media,
+      };
+    },
+
+    async listToRestore({ connectedAccountId, limit }) {
+      const rows = await db
+        .selectFrom('archived_posts')
+        .select('id')
+        .where('connected_account_id', '=', connectedAccountId)
+        .where('hidden_at', 'is not', null)
+        .where('restored_at', 'is', null)
+        .where('kept_hidden_at', 'is', null)
+        .orderBy('posted_at')
+        .limit(limit)
+        .execute();
+      return rows.map((row) => row.id as ArchivedPostId);
+    },
+
+    async markRestored({ archivedPostId, restoredAt }) {
+      await db
+        .updateTable('archived_posts')
+        .set({ restored_at: restoredAt })
+        .where('id', '=', archivedPostId)
+        .execute();
+    },
+
+    async markKeptHidden({ archivedPostId, keptAt }) {
+      await db
+        .updateTable('archived_posts')
+        .set({ kept_hidden_at: keptAt })
+        .where('id', '=', archivedPostId)
+        .execute();
+    },
+
+    async deleteForGood({ accountId, archivedPostId }) {
+      // Its files go with it (the cascade in the migration).
+      await db
+        .deleteFrom('archived_posts')
+        .where('id', '=', archivedPostId)
+        .where('account_id', '=', accountId)
+        .execute();
+    },
+
+    async countToReview(accountId: AccountId) {
+      const { count } = await db
+        .selectFrom('archived_posts')
+        .select((eb) => eb.fn.countAll<string>().as('count'))
+        .where('account_id', '=', accountId)
+        .where('hidden_at', 'is not', null)
+        .where('restored_at', 'is', null)
+        .where('kept_hidden_at', 'is', null)
+        .executeTakeFirstOrThrow();
+      return Number(count);
+    },
+
     async readPost(archivedPostId) {
       const row = await db
         .selectFrom('archived_posts')
@@ -171,6 +268,97 @@ export function createArchiveRepository({
     },
   };
 
+  function selectReviewRows() {
+    return db
+      .selectFrom('archived_posts')
+      .select([
+        'id',
+        'connected_account_id',
+        'uri',
+        'cid',
+        'posted_at',
+        'record_encrypted',
+        'hidden_at',
+        'restored_at',
+        'kept_hidden_at',
+        'backed_up_at',
+      ]);
+  }
+
+  type ReviewRow = Pick<
+    Selectable<ArchivedPostsTable>,
+    | 'id'
+    | 'connected_account_id'
+    | 'uri'
+    | 'cid'
+    | 'posted_at'
+    | 'record_encrypted'
+    | 'hidden_at'
+    | 'restored_at'
+    | 'kept_hidden_at'
+    | 'backed_up_at'
+  >;
+
+  /** The one place an Archive row becomes a post as Review shows it, decrypted. */
+  function toReviewItem(row: ReviewRow): ReviewItem {
+    const state: ReviewState = row.restored_at
+      ? 'restored'
+      : row.kept_hidden_at
+        ? 'kept-hidden'
+        : 'to-review';
+    return {
+      id: row.id as ArchivedPostId,
+      connectedAccountId: ConnectedAccountIdSchema.parse(row.connected_account_id),
+      state,
+      hiddenAt: row.hidden_at ?? row.backed_up_at,
+      post: {
+        uri: row.uri as PostUri,
+        cid: row.cid,
+        createdAt: row.posted_at,
+        record: openRecord(row),
+        media: [],
+      },
+    };
+  }
+
+  function openRecord(row: Pick<ReviewRow, 'connected_account_id' | 'uri' | 'record_encrypted'>) {
+    return PostRecordSchema.parse(
+      JSON.parse(
+        secretBox.open(row.record_encrypted, sealPostFor(row.connected_account_id, row.uri)),
+      ),
+    );
+  }
+
+  async function readMediaOf(row: Pick<ReviewRow, 'id' | 'connected_account_id' | 'uri'>) {
+    return (await mediaRowsOf(row.id as ArchivedPostId)).map((media) => ({
+      cid: media.cid,
+      mimeType: media.mime_type,
+      bytes: secretBox.openBytes(
+        media.content_encrypted,
+        sealMediaFor(row.connected_account_id, row.uri, media.cid),
+      ),
+    }));
+  }
+
+  /** Which files each post has, without their contents. */
+  async function mediaRefsOf(archivedPostIds: readonly string[]) {
+    const byPost = new Map<string, MediaRef[]>();
+    if (archivedPostIds.length === 0) return byPost;
+    const rows = await db
+      .selectFrom('archived_media')
+      .select(['archived_post_id', 'cid', 'mime_type'])
+      .where('archived_post_id', 'in', archivedPostIds)
+      .orderBy('cid')
+      .execute();
+    for (const row of rows) {
+      byPost.set(row.archived_post_id, [
+        ...(byPost.get(row.archived_post_id) ?? []),
+        { cid: row.cid, mimeType: row.mime_type },
+      ]);
+    }
+    return byPost;
+  }
+
   function mediaRowsOf(archivedPostId: ArchivedPostId) {
     return db
       .selectFrom('archived_media')
@@ -186,7 +374,12 @@ export function createArchiveRepository({
       .select((eb) => eb.fn.countAll<string>().as('count'))
       .where(column, '=', id)
       .where('hidden_at', 'is not', null)
+      .where('restored_at', 'is', null)
       .executeTakeFirstOrThrow();
     return Number(count);
   }
+}
+
+function withMedia(item: ReviewItem, media: readonly MediaRef[]): ReviewItem {
+  return { ...item, post: { ...item.post, media } };
 }

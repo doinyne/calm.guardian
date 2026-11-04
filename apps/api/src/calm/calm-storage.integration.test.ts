@@ -15,6 +15,7 @@ import type { ArchivedPostId } from './archive';
 import { createArchiveRepository } from './archive-repository';
 import { createCalmMode } from './calm-mode';
 import { createCalmSessionsRepository } from './calm-sessions-repository';
+import { createRestore } from './restore';
 
 const NOW = new Date('2026-11-04T12:00:00.000Z');
 const PERIOD = presetCalmPeriod('last-7-days', NOW);
@@ -342,5 +343,105 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
     expect(again.outcome).toBe('already-active');
     expect(platform.visibleUris(connected.id)).toEqual([]);
     expect(await archive.countHiddenForConnectedAccount(connected.id)).toBe(3);
+  });
+
+  describe('Review and Restore', () => {
+    /** Hides the posts as a whole Calm session would, then turns it off. Returns their Archive IDs. */
+    async function hidden(connected: ConnectedAccount, ...posts: ReturnType<typeof aPost>[]) {
+      const { session, entries } = await backUp(connected, ...posts);
+      for (const entry of entries) {
+        await archive.markHidden({ archivedPostId: entry.id, hiddenAt: NOW });
+      }
+      // Calm Mode turned on, then off: Review happens once it's off.
+      await calmSessions.markActive({ calmSessionId: session.id, activatedAt: NOW });
+      await calmSessions.end({ calmSessionId: session.id, endedAt: NOW });
+      return posts.map(
+        (post) => entries.find((entry) => entry.uri === post.uri)?.id as ArchivedPostId,
+      );
+    }
+
+    it('lists hidden posts decrypted, to review first, newest first, with their files', async () => {
+      const owner = await newAccount();
+      const connected = await connectBluesky(owner);
+      const older = aPost('2026-11-03T09:00:00.000Z', { mediaCount: 1 });
+      const newer = aPost('2026-11-04T09:00:00.000Z');
+      const kept = aPost('2026-11-04T10:00:00.000Z');
+      const [, , keptId] = await hidden(connected, older, newer, kept);
+      await archive.markKeptHidden({ archivedPostId: keptId!, keptAt: NOW });
+
+      const { items, more } = await archive.listHidden({ accountId: owner, limit: 10 });
+
+      expect(more).toBe(false);
+      expect(items.map((item) => [item.post.uri, item.state])).toEqual([
+        [newer.uri, 'to-review'],
+        [older.uri, 'to-review'],
+        [kept.uri, 'kept-hidden'],
+      ]);
+      expect(items[1]?.post.record).toEqual(older.record);
+      expect(items[1]?.post.media).toEqual(older.media);
+      expect(await archive.countToReview(owner)).toBe(2);
+    });
+
+    it("never shows one Account another Account's posts", async () => {
+      const owner = await newAccount();
+      const [id] = await hidden(await connectBluesky(owner), aPost('2026-11-04T09:00:00.000Z'));
+
+      expect(
+        (await archive.listHidden({ accountId, limit: 10 })).items.map((item) => item.id),
+      ).not.toContain(id);
+      expect(await archive.find({ accountId, archivedPostId: id! })).toBeUndefined();
+    });
+
+    it('restores end to end: files uploaded, the exact post back, recorded once', async () => {
+      const owner = await newAccount();
+      const connected = await connectBluesky(owner);
+      const post = aPost('2026-11-04T09:00:00.000Z', { mediaCount: 1 });
+      const [id] = await hidden(connected, post);
+      const operations: string[] = [];
+      const platform = new FakePlatformPosts(operations);
+      const restore = createRestore({
+        connectedAccounts,
+        calmSessions,
+        archive,
+        platformPosts: platform,
+        now: () => NOW,
+        logger: captureLogs().logger,
+      });
+
+      const first = await restore.restore({ accountId: owner, archivedPostId: id! });
+      const again = await restore.restore({ accountId: owner, archivedPostId: id! });
+
+      expect([first.outcome, again.outcome]).toEqual(['restored', 'already-restored']);
+      expect(operations).toEqual([`upload ${post.media[0]?.cid}`, `restore ${post.uri}`]);
+      expect(platform.visibleUris(connected.id)).toEqual([post.uri]);
+      expect(await archive.countHiddenForConnectedAccount(connected.id)).toBe(0);
+    });
+
+    it('lets an account be disconnected once all its posts are restored', async () => {
+      const owner = await newAccount();
+      const connected = await connectBluesky(owner);
+      const [id] = await hidden(connected, aPost('2026-11-04T09:00:00.000Z'));
+      await archive.markRestored({ archivedPostId: id!, restoredAt: NOW });
+
+      await connectedAccounts.disconnect({ accountId: owner, connectedAccountId: connected.id });
+
+      expect(await rowCount('archived_posts', connected.id)).toBe(0);
+    });
+
+    it('deletes a post and its files for good', async () => {
+      const owner = await newAccount();
+      const connected = await connectBluesky(owner);
+      const [id] = await hidden(connected, aPost('2026-11-04T09:00:00.000Z', { mediaCount: 2 }));
+
+      await archive.deleteForGood({ accountId: owner, archivedPostId: id! });
+
+      expect(await rowCount('archived_posts', connected.id)).toBe(0);
+      const files = await db
+        .selectFrom('archived_media')
+        .select('id')
+        .where('archived_post_id', '=', id!)
+        .execute();
+      expect(files).toEqual([]);
+    });
   });
 });

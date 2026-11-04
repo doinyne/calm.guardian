@@ -15,6 +15,11 @@ export interface BlueskyRepo {
   /** Deleting a post that's already gone succeeds. */
   deletePostRecord(rkey: string): Promise<void>;
   getBlob(cid: string): Promise<Uint8Array>;
+  uploadBlob(bytes: Uint8Array, mimeType: string): Promise<void>;
+  /** Whether the account has a post with this record key. */
+  hasPostRecord(rkey: string): Promise<boolean>;
+  /** Creates a post with this exact record key and record (plain JSON, as `listPostRecords` gives). */
+  createPostRecord(rkey: string, record: Readonly<Record<string, unknown>>): Promise<void>;
 }
 
 /** Signs in as the account, using its stored OAuth session. */

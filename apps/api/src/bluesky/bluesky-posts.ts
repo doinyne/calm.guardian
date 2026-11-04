@@ -29,7 +29,7 @@ export class NotThisAccountsPostError extends Error {
   override name = 'NotThisAccountsPostError';
 
   constructor() {
-    super("Refusing to delete: that is not one of this account's posts");
+    super("Refusing: that is not one of this account's posts");
   }
 }
 
@@ -82,6 +82,22 @@ export function createBlueskyPosts({
     async fetchMedia({ connectedAccount, media }) {
       const repo = await repoFor(connectedAccount.externalId);
       return repo.getBlob(media.cid);
+    },
+
+    async uploadMedia({ connectedAccount, media }) {
+      const repo = await repoFor(connectedAccount.externalId);
+      await repo.uploadBlob(media.bytes, media.mimeType);
+    },
+
+    // The same record at the same record key, so the post's address doesn't change and everything
+    // that pointed at it reconnects. Checking first makes a retry find it, never duplicate it.
+    async restorePost({ connectedAccount, post }) {
+      const rkey = ownPostRkey(post.uri, connectedAccount);
+      if (!rkey) throw new NotThisAccountsPostError();
+      const repo = await repoFor(connectedAccount.externalId);
+      if (await repo.hasPostRecord(rkey)) return 'already-there';
+      await repo.createPostRecord(rkey, post.record);
+      return 'restored';
     },
 
     async deletePost({ connectedAccount, post }) {
