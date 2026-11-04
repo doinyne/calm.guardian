@@ -60,7 +60,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0012](decisions/0012-database-access.md) | Kysely + `pg`; schema in Supabase SQL migrations | Accepted |
 | [0013](decisions/0013-archive-storage.md) | Archive content encrypted; no disconnect while posts are hidden | Accepted |
 | [0014](decisions/0014-archive-media-in-postgres.md) | Archived files in Postgres, encrypted, stored and deleted with their post | Accepted |
-| [0015](decisions/0015-job-runner.md) | Background jobs: Cloud Tasks + Scheduler behind a `JobQueue` port; leases; slices; rate-limit waits | Proposed |
+| [0015](decisions/0015-job-runner.md) | Background jobs: Cloud Tasks + Scheduler behind a `JobQueue` port; runs until done, newest posts first | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
@@ -109,7 +109,8 @@ self-reviewed PR.
 
 ### M2: Archive core ⭐ (TDD, fakes first)
 - [x] `CalmMode` service depending on interfaces (Platform adapter, archive repo, session repo, clock), per connected account plus "turn on for all" (ADR-0011)
-- [x] Every post in the period is backed up **before any** delete; backup failure → nothing deleted, session failed (core, with fakes)
+- [x] Every post is backed up (with its files) **before it's** deleted; a backup failure before anything is hidden → nothing deleted, session failed (core, with fakes)
+- [ ] Newest posts first, each hidden as soon as its own backup is stored (ADR-0015)
 - [x] Full record kept (text, facets, embeds, langs, reply refs); every file (images, video, captions, link previews) copied and encrypted (ADR-0014)
 - [x] Bluesky adapter: list posts for a period, fetch files, delete only this account's own posts
 - [ ] Session state machine (e.g. activating → active / failed → ending → ended)

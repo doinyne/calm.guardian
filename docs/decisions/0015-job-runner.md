@@ -1,6 +1,6 @@
 # 0015: Background jobs with Cloud Tasks, behind a queue port
 
-**Status:** Proposed · **Date:** 2026-11-04
+**Status:** Accepted (Dean, 2026-11-04) · **Date:** 2026-11-04
 
 ## Context
 Calm Mode can't run inside one HTTP request (v1 did, and it was one of its bugs):
@@ -33,7 +33,7 @@ session), **Restore**, and later Guardian emails (M6).
 4. **Supabase Edge Functions or cron.** A second runtime (Deno) with wall-clock limits, which ADR-0004
    already turned down.
 
-## Decision (proposed)
+## Decision
 **Option 1: Cloud Tasks for jobs, Cloud Scheduler for the Sweep, behind a `JobQueue` port.**
 
 **1. A port, so business logic never sees Cloud Tasks.** `jobQueue.enqueue({ job, payload, runAt? })`
@@ -68,7 +68,21 @@ refuses everything else. Locally, the in-process adapter doesn't use HTTP at all
 **7. The Sweep:** Cloud Scheduler calls `POST /internal/sweep` every few minutes (interval kept in
 config). It enqueues one `sweep` job for each active Calm session.
 
-**8. Failures are never swallowed.** A job that runs out of retries leaves its Calm session in a
+**8. Calm Mode keeps going in the background until it's done** (Dean, 2026-11-04: "it only takes one
+rogue post to ruin a career"). There's no overall time limit: slices continue, rate-limit waits
+continue, and real errors are retried with backoff. It stops only when it can't go on without the
+user, for example when Bluesky stops accepting our sign-in (`needs_reauth`), and the app says so.
+
+**9. Newest posts first, each hidden as soon as its own backup is stored** (Dean, 2026-11-04). This
+replaces "back up the whole period, then hide". A post from this morning is hidden within seconds,
+not after 8,000 backups. Product rule 1 holds for every post: it's deleted only after it and all its
+files are confirmed stored.
+- If a backup fails **before anything is hidden**, the Calm session fails and nothing has changed on
+  Bluesky.
+- If it fails **partway**, the posts already hidden stay hidden (they're safely backed up), the Calm
+  session stays `activating`, and the job carries on from where it stopped.
+
+**10. Failures are never swallowed.** A job that runs out of retries leaves its Calm session in a
 state the app can show honestly ("We couldn't finish hiding 12 posts; they're still visible"). It's
 logged with IDs only, never content.
 
@@ -91,5 +105,9 @@ logged with IDs only, never content.
 ## Open questions
 - **The Sweep interval.** More often hides new posts sooner, but costs more requests. Proposal: every
   5 minutes.
-- **What to tell the user** when a big activation will take hours because of Bluesky's limits
-  ("Hiding 8,000 posts. This will take about 2 hours. You can close the app.").
+- **What to tell the user** when a big activation will take hours because of Bluesky's limits, for
+  example: "Hiding 8,000 posts, newest first. Your most recent posts are already hidden. This will take
+  about 2 hours, and it carries on if you close the app." (M3.)
+- **Our own request limit.** Bluesky also limits requests per IP address (about 3,000 every 5 minutes
+  per server). All our users share Cloud Run's outgoing addresses, so at scale the queue's dispatch rate
+  must keep us under it.
