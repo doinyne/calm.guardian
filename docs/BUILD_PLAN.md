@@ -142,7 +142,7 @@ self-reviewed PR.
 - [x] Archive actions: *Restore*, *Keep hidden*, *Delete for good*, and *Restore all* (background job, oldest first, skips kept-hidden)
 - [x] Not while Calm Mode is on for that account; "Review is clear" counted for Guardians (ADR-0011)
 - [x] Review screen in the app: each hidden post in its own words, Bring back, Keep hidden, Delete for good (confirmed), Bring back all; a gentle Review card on home
-- [ ] Check against Bluesky that a post can be re-created at a deleted post's record key (ADR-0016)
+- [x] Checked against Bluesky: 4 real posts hidden and brought back at their original addresses with identical content hashes (ADR-0016)
 
 ### M6: Guardians
 - [ ] Invite flow: the guardian **accepts by email** before they're notified (anti-abuse, GDPR consent)

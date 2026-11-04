@@ -41,5 +41,6 @@ back the same address, and, because the content is identical, the same content h
   is what ADR-0011 needs before a Guardian can turn Calm Mode on again.
 - **Disconnecting:** only posts still hidden block a disconnect (the trigger now ignores restored
   ones).
-- **Not yet verified against Bluesky:** that it accepts re-creating a post at a deleted post's record
-  key. Restore relies on this, so check it on a test post before anyone uses Restore for real.
+- **Verified against Bluesky (2026-11-04):** Dean hid 4 real test posts on @doinyne.bsky.social with
+  Calm Mode, turned it off and brought them back from Review. All 4 came back at their original
+  addresses with identical content hashes, and the Archive recorded each as restored once.
