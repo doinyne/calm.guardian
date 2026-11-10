@@ -11,14 +11,14 @@ const GuardianInviteSchema = z.object({
 
 function buildAppWithValidatedRoute() {
   const { app } = buildTestApp();
-  app.post('/guardians', validate('json', GuardianInviteSchema), (c) =>
+  app.post('/validation-example', validate('json', GuardianInviteSchema), (c) =>
     c.json(c.req.valid('json'), 201),
   );
   return app;
 }
 
 function postJson(body: string) {
-  return buildAppWithValidatedRoute().request('/guardians', {
+  return buildAppWithValidatedRoute().request('/validation-example', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body,

@@ -13,6 +13,8 @@ import { createArchiveRepository } from './calm/archive-repository';
 import { createCalmMode } from './calm/calm-mode';
 import { createCalmSessionsRepository } from './calm/calm-sessions-repository';
 import { createRestore } from './calm/restore';
+import { createGuardians } from './guardians/guardians';
+import { createGuardianshipsRepository } from './guardians/guardianships-repository';
 import { createRestoreAllJob } from './calm/restore-all-job';
 import { createSweepJob, createSweepSchedule } from './calm/sweep-job';
 import { createConnectedAccountsRepository } from './connections/connected-accounts-repository';
@@ -117,6 +119,8 @@ const sweepTimer = setInterval(() => {
   });
 }, config.sweepIntervalMs);
 
+const guardianships = createGuardianshipsRepository(db);
+
 const app = createApp({
   logger,
   readinessChecks: [databaseReadinessCheck(db)],
@@ -135,8 +139,28 @@ const app = createApp({
     disconnect: connectionRemoval.disconnect,
     appReturnUrl: config.bluesky.appReturnUrl,
   },
-  calm: { calmMode, jobQueue, now },
+  calm: {
+    calmMode,
+    jobQueue,
+    now,
+    guardianEmails: async (accountId) =>
+      new Map(
+        (await guardianships.listForAccount(accountId)).map((row) => [row.id, row.guardianEmail]),
+      ),
+  },
   review: { restore, archive, jobQueue },
+  guardians: {
+    guardians: createGuardians({
+      guardianships,
+      connectedAccounts,
+      archive,
+      calmMode,
+      calmSessions,
+      now,
+    }),
+    jobQueue,
+    now,
+  },
 });
 
 const server = serve({ fetch: app.fetch, port: config.port }, (info) => {

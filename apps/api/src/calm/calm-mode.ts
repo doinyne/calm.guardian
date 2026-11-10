@@ -71,6 +71,8 @@ export type CalmStatus = {
     period: CalmPeriod;
     startedAt: Date;
     hidden: number;
+    /** The Guardian who turned it on, or `null` if the user did. */
+    startedBy: GuardianshipId | null;
   } | null;
 };
 
@@ -306,6 +308,7 @@ export function createCalmMode({
               period: open.period,
               startedAt: open.startedAt,
               hidden: await archive.countHidden(open.id),
+              startedBy: open.startedBy,
             }
           : null,
       });
