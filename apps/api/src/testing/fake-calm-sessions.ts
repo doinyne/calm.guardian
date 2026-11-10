@@ -70,6 +70,19 @@ export class FakeCalmSessions implements CalmSessions {
     return Promise.resolve();
   }
 
+  private readonly noticed = new Set<CalmSessionId>();
+
+  claimNotice(calmSessionId: CalmSessionId) {
+    if (this.noticed.has(calmSessionId)) return Promise.resolve(false);
+    this.noticed.add(calmSessionId);
+    return Promise.resolve(true);
+  }
+
+  releaseNotice(calmSessionId: CalmSessionId) {
+    this.noticed.delete(calmSessionId);
+    return Promise.resolve();
+  }
+
   saveProgress({ calmSessionId, resumeCursor }: Parameters<CalmSessions['saveProgress']>[0]) {
     this.get(calmSessionId).resumeCursor = resumeCursor;
     return Promise.resolve();

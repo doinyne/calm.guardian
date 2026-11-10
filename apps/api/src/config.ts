@@ -33,6 +33,10 @@ export type Config = {
   bluesky: BlueskyConfig;
   /** How often the Sweep looks for posts made while Calm Mode is on (ADR-0015). */
   sweepIntervalMs: number;
+  /** Where emails go out. Unset: emails are only noted in the log (local dev without Mailpit). */
+  smtpUrl: string | null;
+  /** The API's public address, for links in emails. */
+  publicApiUrl: URL;
 };
 
 /** Every 5 minutes (ADR-0015). Shorten it locally to watch the Sweep work. */
@@ -117,6 +121,11 @@ const EnvSchema = z.object({
     .int()
     .min(MIN_SWEEP_INTERVAL_SECONDS)
     .default(DEFAULT_SWEEP_INTERVAL_SECONDS),
+  SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+  PUBLIC_API_URL: z
+    .url()
+    .refine(isSecureOrLocal, 'must use https (http is allowed only for a local API)')
+    .default('http://localhost:3000'),
 });
 
 export class ConfigError extends Error {
@@ -147,6 +156,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     BLUESKY_REDIRECT_URL,
     APP_CONNECT_RETURN_URL,
     SWEEP_INTERVAL_SECONDS,
+    SMTP_URL,
+    PUBLIC_API_URL,
   } = result.data;
   return {
     port: PORT,
@@ -159,6 +170,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       appReturnUrl: new URL(APP_CONNECT_RETURN_URL),
     },
     sweepIntervalMs: SWEEP_INTERVAL_SECONDS * 1000,
+    smtpUrl: SMTP_URL ?? null,
+    publicApiUrl: new URL(PUBLIC_API_URL),
   };
 }
 

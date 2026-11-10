@@ -116,6 +116,24 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
       }
     },
 
+    async claimNotice(calmSessionId) {
+      const result = await db
+        .updateTable('calm_sessions')
+        .set({ notified_at: sql`now()` })
+        .where('id', '=', calmSessionId)
+        .where('notified_at', 'is', null)
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
+    },
+
+    async releaseNotice(calmSessionId) {
+      await db
+        .updateTable('calm_sessions')
+        .set({ notified_at: null })
+        .where('id', '=', calmSessionId)
+        .execute();
+    },
+
     async saveProgress({ calmSessionId, resumeCursor }) {
       await db
         .updateTable('calm_sessions')

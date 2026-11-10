@@ -28,6 +28,7 @@ export class FakeGuardianships implements Guardianships {
       guardianAccountId: null,
       state: 'invited',
       emailsOptedOut: false,
+      optOutToken: randomUUID(),
     };
     this.rows.push(row);
     return Promise.resolve(row);
@@ -84,6 +85,12 @@ export class FakeGuardianships implements Guardianships {
 
   find(guardianshipId: GuardianshipId) {
     return Promise.resolve(this.rows.find((row) => row.id === guardianshipId));
+  }
+
+  optOutOfEmails({ optOutToken }: Parameters<Guardianships['optOutOfEmails']>[0]) {
+    const row = this.rows.find((candidate) => candidate.optOutToken === optOutToken);
+    if (row) row.emailsOptedOut = true;
+    return Promise.resolve(row !== undefined);
   }
 
   private drop(matches: (row: Guardianship) => boolean) {

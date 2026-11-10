@@ -29,6 +29,7 @@ export type GuardianshipsTable = {
   invited_at: Date;
   accepted_at: Date | null;
   emails_opted_out_at: Date | null;
+  opt_out_token: Generated<string>;
 };
 
 export type AtprotoOauthStatesTable = {
@@ -58,6 +59,7 @@ export type CalmSessionsTable = {
   claimed_until: Date | null;
   ended_at: Date | null;
   started_by_guardianship_id: string | null;
+  notified_at: Date | null;
 };
 
 export type ArchivedPostsTable = {

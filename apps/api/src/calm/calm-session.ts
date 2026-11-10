@@ -88,6 +88,13 @@ export interface CalmSessions {
 
   markActive(input: { calmSessionId: CalmSessionId; activatedAt: Date }): Promise<void>;
 
+  /**
+   * Claims the once-only "Calm Mode is on" emails. True for exactly one caller, however many retry.
+   * `releaseNotice` gives the claim back if sending failed, so a retry can send them.
+   */
+  claimNotice(calmSessionId: CalmSessionId): Promise<boolean>;
+  releaseNotice(calmSessionId: CalmSessionId): Promise<void>;
+
   /** Turns Calm Mode off: `active` to `ended`. */
   end(input: { calmSessionId: CalmSessionId; endedAt: Date }): Promise<void>;
 

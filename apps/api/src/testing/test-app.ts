@@ -1,7 +1,9 @@
 import { createApp, type AppDependencies } from '../app';
 import { createCalmMode } from '../calm/calm-mode';
 import { createRestore } from '../calm/restore';
+import { createGuardianNotices } from '../guardians/guardian-notices';
 import { createGuardians } from '../guardians/guardians';
+import { FakeEmailSender } from './fake-email-sender';
 import { AccessTokenRejectedError } from '../auth/access-token';
 import type { BlueskyOAuth } from '../connections/bluesky-oauth';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
@@ -55,6 +57,7 @@ export function buildTestApp({
     logger: logs.logger,
   });
   const guardianships = new FakeGuardianships();
+  const email = new FakeEmailSender();
   const guardians = createGuardians({
     guardianships,
     connectedAccounts,
@@ -99,12 +102,24 @@ export function buildTestApp({
         ),
     },
     review: { restore, archive, jobQueue },
-    guardians: { guardians, jobQueue, now: () => TEST_NOW },
+    guardians: {
+      guardians,
+      notices: createGuardianNotices({
+        guardianships,
+        connectedAccounts,
+        calmSessions,
+        email,
+        publicApiUrl: new URL('http://localhost:3000'),
+      }),
+      jobQueue,
+      now: () => TEST_NOW,
+      logger: logs.logger,
+    },
     ...overrides,
   });
   return {
     app,
     logs,
-    calm: { calmMode, restore, platform, archive, calmSessions, jobQueue, guardianships },
+    calm: { calmMode, restore, platform, archive, calmSessions, jobQueue, guardianships, email },
   };
 }

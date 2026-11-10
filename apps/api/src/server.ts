@@ -13,6 +13,8 @@ import { createArchiveRepository } from './calm/archive-repository';
 import { createCalmMode } from './calm/calm-mode';
 import { createCalmSessionsRepository } from './calm/calm-sessions-repository';
 import { createRestore } from './calm/restore';
+import { createLoggingEmailSender, createSmtpEmailSender } from './email/email-sender';
+import { createGuardianNotices } from './guardians/guardian-notices';
 import { createGuardians } from './guardians/guardians';
 import { createGuardianshipsRepository } from './guardians/guardianships-repository';
 import { createRestoreAllJob } from './calm/restore-all-job';
@@ -104,7 +106,14 @@ const jobQueue = createInProcessJobQueue({
   logger,
   now,
 });
-jobs.runActivation = createActivationJob({ calmMode, calmSessions, jobQueue, now, logger });
+jobs.runActivation = createActivationJob({
+  calmMode,
+  calmSessions,
+  jobQueue,
+  now,
+  logger,
+  onCalmModeOn: (calmSessionId) => guardianNotices.calmModeOn(calmSessionId),
+});
 jobs.runRestoreAll = createRestoreAllJob({ restore, jobQueue, now, logger });
 jobs.runSweep = createSweepJob({ calmMode, calmSessions, jobQueue, now, logger });
 
@@ -120,6 +129,13 @@ const sweepTimer = setInterval(() => {
 }, config.sweepIntervalMs);
 
 const guardianships = createGuardianshipsRepository(db);
+const guardianNotices = createGuardianNotices({
+  guardianships,
+  connectedAccounts,
+  calmSessions,
+  email: config.smtpUrl ? createSmtpEmailSender(config.smtpUrl) : createLoggingEmailSender(logger),
+  publicApiUrl: config.publicApiUrl,
+});
 
 const app = createApp({
   logger,
@@ -158,8 +174,10 @@ const app = createApp({
       calmSessions,
       now,
     }),
+    notices: guardianNotices,
     jobQueue,
     now,
+    logger,
   },
 });
 

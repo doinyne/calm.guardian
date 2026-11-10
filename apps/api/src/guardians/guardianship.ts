@@ -16,6 +16,8 @@ export type Guardianship = {
   guardianAccountId: AccountId | null;
   state: 'invited' | 'active';
   emailsOptedOut: boolean;
+  /** For the opt-out link in their emails. Unguessable; never shown in the app. */
+  optOutToken: string;
 };
 
 /** Guardianships (the repository's port). */
@@ -55,4 +57,7 @@ export interface Guardianships {
   }): Promise<void>;
 
   find(guardianshipId: GuardianshipId): Promise<Guardianship | undefined>;
+
+  /** The Guardian stops Calm Guardian's emails. Returns false for an unknown token. */
+  optOutOfEmails(input: { optOutToken: string; at: Date }): Promise<boolean>;
 }

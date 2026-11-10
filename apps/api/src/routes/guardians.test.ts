@@ -82,6 +82,25 @@ describe('Guardian routes', () => {
       });
     });
 
+    it('emails the invitation to the Guardian', async () => {
+      const { calm, dean, alex, as } = await setUp();
+
+      await as(dean, 'POST', '/guardians', { email: alex.email });
+
+      expect(calm.email.sent).toMatchObject([
+        { to: alex.email, subject: `${dean.email} asked you to be their Guardian` },
+      ]);
+    });
+
+    it("doesn't email again when the same person is invited twice", async () => {
+      const { calm, dean, alex, as } = await setUp();
+
+      await as(dean, 'POST', '/guardians', { email: alex.email });
+      await as(dean, 'POST', '/guardians', { email: alex.email });
+
+      expect(calm.email.sent).toHaveLength(1);
+    });
+
     it(`stops at ${MAX_GUARDIANS}`, async () => {
       const { dean, as } = await setUp();
       for (let index = 0; index < MAX_GUARDIANS; index += 1) {
@@ -262,5 +281,19 @@ describe('Guardian routes', () => {
     await as(alex, 'DELETE', `/guardian/guardianships/${guardianshipId}`);
 
     expect(await (await as(dean, 'GET', '/guardians')).json()).toMatchObject({ guardians: [] });
+  });
+
+  it("stops a Guardian's emails from the link in one, without signing in", async () => {
+    const { app, calm, alexIsDeansGuardian } = await setUp();
+    await alexIsDeansGuardian();
+    const [guardianship] = calm.guardianships.all();
+
+    const response = await app.request(
+      `/guardian/emails/opt-out?token=${guardianship?.optOutToken}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("You won't get these emails any more");
+    expect(calm.guardianships.all()[0]?.emailsOptedOut).toBe(true);
   });
 });

@@ -129,6 +129,10 @@ export function createGuardians({
       return accepted ? 'accepted' : 'not-found';
     },
 
+    /** From the link in a Guardian's email: no sign-in, the unguessable token is the proof. */
+    optOutOfEmails: (optOutToken: string) =>
+      guardianships.optOutOfEmails({ optOutToken, at: now() }),
+
     stepDown: (input: {
       guardianAccountId: AccountId;
       guardianEmail: string;

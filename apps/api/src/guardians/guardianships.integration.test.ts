@@ -134,4 +134,16 @@ describe('guardianships (local Supabase)', () => {
     expect([byStranger, before]).toEqual([false, false]);
     expect((await connectedAccounts.findById(account.id))?.guardiansCanTurnOn).toBe(true);
   });
+
+  it('opts a Guardian out of emails with their token, and ignores an unknown one', async () => {
+    const user = await newAccount();
+    const invited = await invite(user, `g-${randomUUID()}@example.com`);
+
+    const unknown = await guardianships.optOutOfEmails({ optOutToken: 'not-a-token', at: NOW });
+    const known = await guardianships.optOutOfEmails({ optOutToken: invited.optOutToken, at: NOW });
+
+    expect([unknown, known]).toEqual([false, true]);
+    expect((await guardianships.find(invited.id))?.emailsOptedOut).toBe(true);
+    expect(invited.optOutToken).toMatch(/^[0-9a-f]{48}$/);
+  });
 });

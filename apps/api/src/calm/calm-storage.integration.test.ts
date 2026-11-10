@@ -205,6 +205,19 @@ describe('Calm sessions and the Archive (local Supabase)', () => {
       );
     });
 
+    it('let only one caller claim the "Calm Mode is on" emails, until released', async () => {
+      const session = await openSession(await connectBluesky());
+
+      const claims = await Promise.all(
+        Array.from({ length: 5 }, () => calmSessions.claimNotice(session.id)),
+      );
+      await calmSessions.releaseNotice(session.id);
+      const afterRelease = await calmSessions.claimNotice(session.id);
+
+      expect(claims.filter(Boolean)).toHaveLength(1);
+      expect(afterRelease).toBe(true);
+    });
+
     it('refuse to become active twice', async () => {
       const connected = await connectBluesky();
       const session = await openSession(connected);

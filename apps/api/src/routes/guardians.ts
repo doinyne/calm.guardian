@@ -4,7 +4,9 @@ import { z } from 'zod';
 
 import { ConnectedAccountIdSchema } from '../connections/connected-account';
 import type { GuardianshipId } from '../guardians/guardianship';
+import type { createGuardianNotices } from '../guardians/guardian-notices';
 import type { createGuardians } from '../guardians/guardians';
+import type { Logger } from '../logger';
 import { errorResponse } from '../http/errors';
 import type { RequireAccount } from '../http/require-account';
 import { validate } from '../http/validation';
@@ -12,9 +14,21 @@ import type { JobQueue } from '../jobs/job-queue';
 
 export type GuardiansDependencies = {
   guardians: ReturnType<typeof createGuardians>;
+  notices: Pick<ReturnType<typeof createGuardianNotices>, 'invited'>;
   jobQueue: JobQueue;
   now: () => Date;
+  logger: Logger;
 };
+
+const OptOutQuerySchema = z.object({ token: z.string().min(1).max(200) });
+
+/** A page for the opt-out link: plain, calm, and the same whether or not the link was valid. */
+const OPT_OUT_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Calm Guardian</title></head>
+<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.5">
+<h1>You won't get these emails any more</h1>
+<p>You're still a Guardian, and you can still turn on Calm Mode in the app. You can step down there at any time.</p>
+</body></html>`;
 
 const InviteBodySchema = z.object({ email: z.email().max(254) });
 const IdParamsSchema = z.object({ id: z.uuid() });
@@ -29,8 +43,10 @@ const GuardianTurnOnBodySchema = z.object({ period: z.enum(CALM_PERIOD_PRESETS) 
 export function guardiansRoutes({
   requireAccount,
   guardians,
+  notices,
   jobQueue,
   now,
+  logger,
 }: GuardiansDependencies & { requireAccount: RequireAccount }) {
   const notFound = (c: Context) =>
     errorResponse(c, 404, { code: 'not_found', message: 'That invitation is no longer here.' });
@@ -63,6 +79,15 @@ export function guardiansRoutes({
           accountEmail: c.var.accountEmail,
           guardianEmail: c.req.valid('json').email,
         });
+        if (result.outcome === 'invited') {
+          // The invitation stands even if the email doesn't go: they can still accept by signing in.
+          await notices.invited(result.guardianship).catch((error: unknown) => {
+            logger.error(
+              { errorName: error instanceof Error ? error.name : typeof error },
+              'Could not send a Guardian invitation email',
+            );
+          });
+        }
         switch (result.outcome) {
           case 'invited':
           case 'already-invited': {
@@ -153,6 +178,12 @@ export function guardiansRoutes({
           return c.body(null, 204);
         },
       )
+
+      // Public: the link in a Guardian's email. The token is the proof; the page never says whether it was valid.
+      .get('/guardian/emails/opt-out', validate('query', OptOutQuerySchema), async (c) => {
+        await guardians.optOutOfEmails(c.req.valid('query').token);
+        return c.html(OPT_OUT_PAGE);
+      })
 
       .get('/guardian/protecting', requireAccount, async (c) =>
         c.json({ protecting: await guardians.protecting(c.var.accountId) }),

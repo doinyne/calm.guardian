@@ -85,6 +85,15 @@ export function createGuardianshipsRepository(db: Db): Guardianships {
         .execute();
     },
 
+    async optOutOfEmails({ optOutToken, at }) {
+      const result = await db
+        .updateTable('guardianships')
+        .set((eb) => ({ emails_opted_out_at: eb.fn.coalesce('emails_opted_out_at', eb.val(at)) }))
+        .where('opt_out_token', '=', optOutToken)
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
+    },
+
     async find(guardianshipId) {
       const row = await select().where('id', '=', guardianshipId).executeTakeFirst();
       return row ? toGuardianship(row) : undefined;
@@ -103,5 +112,6 @@ function toGuardianship(row: Selectable<GuardianshipsTable>): Guardianship {
       row.guardian_account_id === null ? null : AccountIdSchema.parse(row.guardian_account_id),
     state: row.state === 'active' ? 'active' : 'invited',
     emailsOptedOut: row.emails_opted_out_at !== null,
+    optOutToken: row.opt_out_token,
   };
 }
