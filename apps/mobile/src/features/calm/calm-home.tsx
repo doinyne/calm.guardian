@@ -6,6 +6,7 @@ import { MonoLabel } from '@/components/mono-label';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
+import { useGuardianInvitations } from '@/features/guardians/use-guardians';
 import { useReview, useReviewFollows } from '@/features/review/use-review';
 
 import { accountReadout, turnOffMessage } from './calm-copy';
@@ -54,11 +55,16 @@ export function CalmHome({
   onTurnOn,
   onConnect,
   onReview,
+  onGuardians,
+  onLookingAfter,
 }: {
   onTurnOn: (target: CalmTarget) => void;
   onConnect: () => void;
   onReview: () => void;
+  onGuardians: () => void;
+  onLookingAfter: () => void;
 }) {
+  const invitations = useGuardianInvitations();
   const status = useCalmStatus();
   const accounts = status.data ?? [];
   useReviewFollows(
@@ -88,6 +94,20 @@ export function CalmHome({
           <Text className="text-muted-foreground">{hero.body}</Text>
         </View>
       </View>
+
+      {invitations.data && invitations.data.length > 0 ? (
+        <View className="gap-3 rounded-xl border border-hope bg-card p-5">
+          <MonoLabel className="text-hope">Guardian invitation</MonoLabel>
+          <Text>
+            {invitations.data.length === 1
+              ? `${invitations.data[0]?.from} would like you to be one of their Guardians.`
+              : `${invitations.data.length} people would like you to be one of their Guardians.`}
+          </Text>
+          <Button variant="outline" onPress={onLookingAfter}>
+            <Text>See invitation</Text>
+          </Button>
+        </View>
+      ) : null}
 
       {reviewable.length > 0 ? (
         <View className="gap-3 rounded-xl border border-hope bg-card p-5">
@@ -131,6 +151,7 @@ export function CalmHome({
             account={account}
             onTurnOn={onTurnOn}
             onConnect={onConnect}
+            onGuardians={onGuardians}
           />
         ))}
 
@@ -146,20 +167,35 @@ function AccountRow({
   account,
   onTurnOn,
   onConnect,
+  onGuardians,
 }: {
   account: CalmAccount;
   onTurnOn: (target: CalmTarget) => void;
   onConnect: () => void;
+  onGuardians: () => void;
 }) {
   const turnOff = useTurnOffCalm();
   const disconnect = useDisconnectAccount();
   const name = `@${account.handle}`;
   const needsSignIn = account.status === 'needs_reauth';
 
+  const byGuardian = account.calm?.startedByGuardian ?? null;
+  // When a Guardian turned it on, offer to change what they can do as well (BUILD_PLAN M6).
   const confirmTurnOff = (hidden: number) =>
     Alert.alert('Turn off Calm Mode?', turnOffMessage(hidden), [
       { text: 'Keep it on', style: 'cancel' },
       { text: 'Turn off', onPress: () => turnOff.mutate(account.id) },
+      ...(byGuardian
+        ? [
+            {
+              text: `Turn off and change what ${byGuardian} can do`,
+              onPress: () => {
+                turnOff.mutate(account.id);
+                onGuardians();
+              },
+            },
+          ]
+        : []),
     ]);
 
   return (

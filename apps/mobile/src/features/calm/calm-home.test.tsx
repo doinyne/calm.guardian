@@ -15,7 +15,13 @@ async function renderHome(
   const onTurnOn = jest.fn();
   const onConnect = jest.fn();
   await renderWithQueries(
-    <CalmHome onTurnOn={onTurnOn} onConnect={onConnect} onReview={jest.fn()} />,
+    <CalmHome
+      onTurnOn={onTurnOn}
+      onConnect={onConnect}
+      onReview={jest.fn()}
+      onGuardians={jest.fn()}
+      onLookingAfter={jest.fn()}
+    />,
   );
   return { requests, onTurnOn, onConnect };
 }
@@ -165,6 +171,48 @@ describe('home: Calm Mode at a glance', () => {
 
     expect(await screen.findByText('Calm Mode is on')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: 'Review hidden posts' })).toBeNull();
+  });
+});
+
+describe('home and Guardians', () => {
+  it('says which Guardian turned Calm Mode on', async () => {
+    await renderHome(() => [
+      aCalmAccount({
+        calm: { ...calmSession('active', 3), startedByGuardian: 'alex@example.com' },
+      }),
+    ]);
+
+    expect(
+      await screen.findByText('Calm Mode on · 3 hidden · turned on by alex@example.com'),
+    ).toBeOnTheScreen();
+  });
+
+  it('offers to change what that Guardian can do when turning it off', async () => {
+    await renderHome(() => [
+      aCalmAccount({
+        calm: { ...calmSession('active', 3), startedByGuardian: 'alex@example.com' },
+      }),
+    ]);
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Turn off Calm Mode for @doinyne.bsky.social' }),
+    );
+
+    const buttons = alert.mock.calls[0]?.[2]?.map((button) => button.text);
+    expect(buttons).toContain('Turn off and change what alex@example.com can do');
+  });
+
+  it("shows an invitation to be someone else's Guardian", async () => {
+    await renderHome(() => [ME], {
+      'GET /guardian/invitations': {
+        body: { invitations: [{ id: 'i1', from: 'sam@example.com' }] },
+      },
+    });
+
+    expect(
+      await screen.findByText('sam@example.com would like you to be one of their Guardians.'),
+    ).toBeOnTheScreen();
   });
 });
 
