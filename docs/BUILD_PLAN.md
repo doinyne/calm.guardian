@@ -130,7 +130,7 @@ self-reviewed PR.
 - [x] Calm Mode indicator on home and Settings (modals are short-lived and skip it)
 - [x] Status survives an app restart; deactivate finds the active session server-side
 - [ ] Custom from–to period picker (`@react-native-community/datetimepicker`, a native rebuild; the API core already accepts custom periods)
-- [ ] Wording for very long activations ("about 2 hours"), from Bluesky's rate limits (ADR-0015)
+- [x] Wording for long activations: a rough time from Bluesky's ~5,000 deletes an hour, "newest first, carries on if you close the app"
 
 ### M4: Sweep
 - [x] Server-side schedule backs up and hides posts made during an active session, app closed or not (every 5 minutes by default, `SWEEP_INTERVAL_SECONDS`)

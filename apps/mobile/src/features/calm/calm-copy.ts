@@ -30,6 +30,22 @@ export function previewSentence({ posts, more }: { posts: number; more: boolean 
   return `${postsPhrase(posts)} will be backed up and hidden.`;
 }
 
+/**
+ * Bluesky lets an account delete about 5,000 posts an hour (ADR-0015), so above this many, hiding
+ * takes long enough to say so.
+ */
+const HIDES_PER_HOUR = 5_000;
+const WORTH_MENTIONING = 2_000;
+const REASSURANCE = 'Your newest posts are hidden first, and it carries on if you close the app.';
+
+/** A calm, rough time for a long job. `null` when it's quick enough not to mention. */
+export function durationSentence({ posts, more }: { posts: number; more: boolean }): string | null {
+  if (more) return `This may take a few hours. ${REASSURANCE}`;
+  if (posts < WORTH_MENTIONING) return null;
+  const hours = Math.max(1, Math.round(posts / HIDES_PER_HOUR));
+  return `This will take about ${hours === 1 ? 'an hour' : `${hours} hours`}. ${REASSURANCE}`;
+}
+
 export function turnOffMessage(hidden: number): string {
   return hidden === 0
     ? 'Your posts stay as they are.'

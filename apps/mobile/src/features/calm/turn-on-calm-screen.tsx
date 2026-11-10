@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 
-import { DEFAULT_PERIOD, PERIOD_LABEL, previewSentence } from './calm-copy';
+import { DEFAULT_PERIOD, durationSentence, PERIOD_LABEL, previewSentence } from './calm-copy';
 import { useCalmPreview, useCalmStatus, useTurnOnCalm, type CalmTarget } from './use-calm';
 
 /**
@@ -105,6 +105,9 @@ export function TurnOnCalmScreen({ target, onDone }: { target: CalmTarget; onDon
           <Text className="text-muted-foreground">Counting posts…</Text>
         ) : null}
         {preview.data ? <Text>{previewSentence(preview.data)}</Text> : null}
+        {preview.data && durationSentence(preview.data) ? (
+          <Text className="mt-2 text-muted-foreground">{durationSentence(preview.data)}</Text>
+        ) : null}
         {preview.isError ? (
           <Text className="text-muted-foreground">
             We couldn&apos;t count the posts just now. You can still turn Calm Mode on.

@@ -39,6 +39,7 @@ describe('turning on Calm Mode', () => {
     expect(
       await screen.findByText('More than 1,000 posts will be backed up and hidden.'),
     ).toBeOnTheScreen();
+    expect(screen.getByText(/This may take a few hours/)).toBeOnTheScreen();
     expect(requests).toContainEqual({
       method: 'POST',
       path: `/connections/${ME.id}/calm/preview`,
