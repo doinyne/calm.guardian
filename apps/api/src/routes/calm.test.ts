@@ -131,6 +131,35 @@ describe('Calm Mode routes', () => {
       expect(await response.json()).toMatchObject({ error: { code: 'connection_needs_sign_in' } });
     });
 
+    it('turns on for a period the user picked', async () => {
+      const { calm, connect, call } = setUp();
+      const account = await connect();
+      calm.platform.publish(account.id, hoursAgo(5), hoursAgo(1));
+
+      const response = await call('POST', `/connections/${account.id}/calm`, {
+        period: { from: '2026-11-04T06:00:00.000Z', to: '2026-11-04T08:00:00.000Z' },
+      });
+
+      expect(response.status).toBe(202);
+      expect(calm.calmSessions.all()[0]?.period).toEqual({
+        from: new Date('2026-11-04T06:00:00.000Z'),
+        to: new Date('2026-11-04T08:00:00.000Z'),
+      });
+    });
+
+    it('refuses a picked period that ends before it starts, or ends in the future', async () => {
+      const { connect, call } = setUp();
+      const account = await connect();
+
+      for (const period of [
+        { from: '2026-11-04T08:00:00.000Z', to: '2026-11-04T06:00:00.000Z' },
+        { from: null, to: '2026-11-05T12:00:00.000Z' },
+      ]) {
+        const response = await call('POST', `/connections/${account.id}/calm`, { period });
+        expect(response.status).toBe(400);
+      }
+    });
+
     it('accepts only the preset periods', async () => {
       const { connect, call } = setUp();
       const account = await connect();
