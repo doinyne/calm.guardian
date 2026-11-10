@@ -1,6 +1,9 @@
 import { createApp, type AppDependencies } from '../app';
 import { createCalmMode } from '../calm/calm-mode';
 import { createRestore } from '../calm/restore';
+import { createGuardianNotices } from '../guardians/guardian-notices';
+import { createGuardians } from '../guardians/guardians';
+import { FakeEmailSender } from './fake-email-sender';
 import { AccessTokenRejectedError } from '../auth/access-token';
 import type { BlueskyOAuth } from '../connections/bluesky-oauth';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
@@ -10,6 +13,7 @@ import { FakeArchive } from './fake-archive';
 import { FakeBlueskyOAuth } from './fake-bluesky-oauth';
 import { FakeCalmSessions } from './fake-calm-sessions';
 import { FakeConnectedAccounts } from './fake-connected-accounts';
+import { FakeGuardianships } from './fake-guardianships';
 import { FakeJobQueue } from './fake-job-queue';
 import { FakePendingConnections } from './fake-pending-connections';
 import { FakePlatformPosts } from './fake-platform-posts';
@@ -52,6 +56,16 @@ export function buildTestApp({
     now: () => TEST_NOW,
     logger: logs.logger,
   });
+  const guardianships = new FakeGuardianships();
+  const email = new FakeEmailSender();
+  const guardians = createGuardians({
+    guardianships,
+    connectedAccounts,
+    archive,
+    calmMode,
+    calmSessions,
+    now: () => TEST_NOW,
+  });
   const restore = createRestore({
     connectedAccounts,
     calmSessions,
@@ -78,9 +92,34 @@ export function buildTestApp({
       disconnect,
       appReturnUrl: TEST_APP_RETURN_URL,
     },
-    calm: { calmMode, jobQueue, now: () => TEST_NOW },
+    calm: {
+      calmMode,
+      jobQueue,
+      now: () => TEST_NOW,
+      guardianEmails: async (accountId) =>
+        new Map(
+          (await guardianships.listForAccount(accountId)).map((row) => [row.id, row.guardianEmail]),
+        ),
+    },
     review: { restore, archive, jobQueue },
+    guardians: {
+      guardians,
+      notices: createGuardianNotices({
+        guardianships,
+        connectedAccounts,
+        calmSessions,
+        email,
+        publicApiUrl: new URL('http://localhost:3000'),
+      }),
+      jobQueue,
+      now: () => TEST_NOW,
+      logger: logs.logger,
+    },
     ...overrides,
   });
-  return { app, logs, calm: { calmMode, restore, platform, archive, calmSessions, jobQueue } };
+  return {
+    app,
+    logs,
+    calm: { calmMode, restore, platform, archive, calmSessions, jobQueue, guardianships, email },
+  };
 }

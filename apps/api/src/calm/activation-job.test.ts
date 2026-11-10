@@ -72,6 +72,7 @@ async function setUp({
     account,
     platform,
     archive,
+    calmMode,
     calmSessions,
     jobQueue,
     logs,
@@ -197,5 +198,28 @@ describe('the activation job', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('tells the Guardians once Calm Mode is on, and not before', async () => {
+    const setup = await setUp({ posts: 2, sliceMs: 0 });
+    const noticed: string[] = [];
+    const runJob = createActivationJob({
+      calmMode: setup.calmMode,
+      calmSessions: setup.calmSessions,
+      jobQueue: setup.jobQueue,
+      now: () => NOW,
+      sliceMs: 0,
+      logger: captureLogs().logger,
+      onCalmModeOn: (id) => {
+        noticed.push(id);
+        return Promise.resolve();
+      },
+    });
+
+    await runJob({ calmSessionId: setup.calmSessionId });
+    expect(noticed).toEqual([]);
+    await runJob({ calmSessionId: setup.calmSessionId });
+
+    expect(noticed).toEqual([setup.calmSessionId]);
   });
 });

@@ -12,6 +12,7 @@ import type { Logger } from './logger';
 import { accountRoutes } from './routes/account';
 import { calmRoutes, type CalmDependencies } from './routes/calm';
 import { connectionsRoutes, type ConnectionsDependencies } from './routes/connections';
+import { guardiansRoutes, type GuardiansDependencies } from './routes/guardians';
 import { healthRoutes, type ReadinessCheck } from './routes/health';
 import { reviewRoutes, type ReviewDependencies } from './routes/review';
 
@@ -26,6 +27,7 @@ export type AppDependencies = {
   connections: ConnectionsDependencies;
   calm: CalmDependencies;
   review: ReviewDependencies;
+  guardians: GuardiansDependencies;
 };
 
 /**
@@ -40,6 +42,7 @@ export function createApp({
   connections,
   calm,
   review,
+  guardians,
 }: AppDependencies) {
   const signedIn = requireAccount({ verifyAccessToken, logger });
 
@@ -61,7 +64,8 @@ export function createApp({
     .route('/', accountRoutes({ requireAccount: signedIn, deleteAccount }))
     .route('/', connectionsRoutes({ requireAccount: signedIn, logger, ...connections }))
     .route('/', calmRoutes({ requireAccount: signedIn, ...calm }))
-    .route('/', reviewRoutes({ requireAccount: signedIn, ...review }));
+    .route('/', reviewRoutes({ requireAccount: signedIn, ...review }))
+    .route('/', guardiansRoutes({ requireAccount: signedIn, ...guardians }));
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);

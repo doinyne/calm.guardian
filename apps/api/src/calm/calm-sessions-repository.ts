@@ -6,6 +6,7 @@ import {
   type ConnectedAccountId,
 } from '../connections/connected-account';
 import type { CalmSessionsTable, Db } from '../db/database';
+import type { GuardianshipId } from '../guardians/guardianship';
 import { AccountIdSchema } from '../accounts/account-id';
 import {
   CALM_SESSION_FAILURES,
@@ -51,7 +52,7 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
   }
 
   return {
-    async openFor({ accountId, connectedAccountId, period, startedAt }) {
+    async openFor({ accountId, connectedAccountId, period, startedAt, startedBy }) {
       const open = await findOpen(connectedAccountId);
       if (open) return toCalmSession(open);
 
@@ -63,6 +64,7 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
           period_from: period.from,
           period_to: period.to,
           started_at: startedAt,
+          started_by_guardianship_id: startedBy ?? null,
         })
         .onConflict((conflict) =>
           conflict.column('connected_account_id').where(IS_OPEN).doNothing(),
@@ -112,6 +114,24 @@ export function createCalmSessionsRepository(db: Db): CalmSessions {
           `Calm session ${calmSessionId} is not active, so it can't end`,
         );
       }
+    },
+
+    async claimNotice(calmSessionId) {
+      const result = await db
+        .updateTable('calm_sessions')
+        .set({ notified_at: sql`now()` })
+        .where('id', '=', calmSessionId)
+        .where('notified_at', 'is', null)
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
+    },
+
+    async releaseNotice(calmSessionId) {
+      await db
+        .updateTable('calm_sessions')
+        .set({ notified_at: null })
+        .where('id', '=', calmSessionId)
+        .execute();
     },
 
     async saveProgress({ calmSessionId, resumeCursor }) {
@@ -169,5 +189,6 @@ function toCalmSession(row: Selectable<CalmSessionsTable>): CalmSession {
     startedAt: row.started_at,
     failure: row.failure === null ? null : CalmSessionFailureSchema.parse(row.failure),
     resumeCursor: row.resume_cursor,
+    startedBy: row.started_by_guardianship_id as GuardianshipId | null,
   };
 }

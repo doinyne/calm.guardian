@@ -2,6 +2,7 @@ import type { CalmPeriod } from '@calm-guardian/shared';
 
 import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccountId } from '../connections/connected-account';
+import type { GuardianshipId } from '../guardians/guardianship';
 
 export type CalmSessionId = string & { readonly __brand: 'CalmSessionId' };
 
@@ -47,6 +48,8 @@ export type CalmSession = {
   period: CalmPeriod;
   startedAt: Date;
   failure: CalmSessionFailure | null;
+  /** The Guardian who turned Calm Mode on, or `null` when the user did (ADR-0011). */
+  startedBy: GuardianshipId | null;
   /** Where the next run carries on listing posts. `null`: from the newest. */
   resumeCursor: string | null;
 };
@@ -62,6 +65,7 @@ export interface CalmSessions {
     connectedAccountId: ConnectedAccountId;
     period: CalmPeriod;
     startedAt: Date;
+    startedBy?: GuardianshipId;
   }): Promise<CalmSession>;
 
   find(calmSessionId: CalmSessionId): Promise<CalmSession | undefined>;
@@ -83,6 +87,13 @@ export interface CalmSessions {
   release(calmSessionId: CalmSessionId): Promise<void>;
 
   markActive(input: { calmSessionId: CalmSessionId; activatedAt: Date }): Promise<void>;
+
+  /**
+   * Claims the once-only "Calm Mode is on" emails. True for exactly one caller, however many retry.
+   * `releaseNotice` gives the claim back if sending failed, so a retry can send them.
+   */
+  claimNotice(calmSessionId: CalmSessionId): Promise<boolean>;
+  releaseNotice(calmSessionId: CalmSessionId): Promise<void>;
 
   /** Turns Calm Mode off: `active` to `ended`. */
   end(input: { calmSessionId: CalmSessionId; endedAt: Date }): Promise<void>;

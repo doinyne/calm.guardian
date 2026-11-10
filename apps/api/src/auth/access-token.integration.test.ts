@@ -33,7 +33,10 @@ describe('verifying real Supabase access tokens (local Supabase)', () => {
   it('accepts a signed-in user and returns their Account ID', async () => {
     const { user, accessToken } = await signIn();
 
-    await expect(verify(accessToken)).resolves.toEqual({ accountId: user.id });
+    await expect(verify(accessToken)).resolves.toEqual({
+      accountId: user.id,
+      email: user.email.toLowerCase(),
+    });
   });
 
   it('rejects a tampered token', async () => {

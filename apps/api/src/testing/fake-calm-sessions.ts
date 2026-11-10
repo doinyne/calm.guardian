@@ -25,6 +25,7 @@ export class FakeCalmSessions implements CalmSessions {
     connectedAccountId,
     period,
     startedAt,
+    startedBy,
   }: Parameters<CalmSessions['openFor']>[0]) {
     const open = this.sessions.find(
       (session) => session.connectedAccountId === connectedAccountId && isOpen(session.state),
@@ -40,6 +41,7 @@ export class FakeCalmSessions implements CalmSessions {
       startedAt,
       failure: null,
       resumeCursor: null,
+      startedBy: startedBy ?? null,
     };
     this.sessions.push(session);
     return Promise.resolve({ ...session });
@@ -65,6 +67,19 @@ export class FakeCalmSessions implements CalmSessions {
 
   end({ calmSessionId }: Parameters<CalmSessions['end']>[0]) {
     this.moveTo(calmSessionId, 'ended');
+    return Promise.resolve();
+  }
+
+  private readonly noticed = new Set<CalmSessionId>();
+
+  claimNotice(calmSessionId: CalmSessionId) {
+    if (this.noticed.has(calmSessionId)) return Promise.resolve(false);
+    this.noticed.add(calmSessionId);
+    return Promise.resolve(true);
+  }
+
+  releaseNotice(calmSessionId: CalmSessionId) {
+    this.noticed.delete(calmSessionId);
     return Promise.resolve();
   }
 

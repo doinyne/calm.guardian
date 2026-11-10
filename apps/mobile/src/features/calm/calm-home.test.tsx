@@ -33,8 +33,9 @@ describe('home: Calm Mode at a glance', () => {
   it('shows Calm Mode is off, with a way to turn it on for each account', async () => {
     const { onTurnOn } = await renderHome(() => [ME]);
 
-    expect(await screen.findByText('Calm Mode is off')).toBeOnTheScreen();
-    expect(screen.getByText('Bluesky · Standing by')).toBeOnTheScreen();
+    // Wait for the account itself: "off" also shows while the accounts are still loading.
+    expect(await screen.findByText('Bluesky · Standing by')).toBeOnTheScreen();
+    expect(screen.getByText('Calm Mode is off')).toBeOnTheScreen();
     await fireEvent.press(
       screen.getByRole('button', { name: 'Turn on Calm Mode for @doinyne.bsky.social' }),
     );

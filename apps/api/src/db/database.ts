@@ -16,6 +16,20 @@ export type ConnectedAccountsTable = {
   status: Generated<string>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  guardians_can_turn_on: Generated<boolean>;
+};
+
+export type GuardianshipsTable = {
+  id: Generated<string>;
+  account_id: string;
+  account_email: string;
+  guardian_email: string;
+  guardian_account_id: string | null;
+  state: Generated<string>;
+  invited_at: Date;
+  accepted_at: Date | null;
+  emails_opted_out_at: Date | null;
+  opt_out_token: Generated<string>;
 };
 
 export type AtprotoOauthStatesTable = {
@@ -44,6 +58,8 @@ export type CalmSessionsTable = {
   resume_cursor: string | null;
   claimed_until: Date | null;
   ended_at: Date | null;
+  started_by_guardianship_id: string | null;
+  notified_at: Date | null;
 };
 
 export type ArchivedPostsTable = {
@@ -72,6 +88,7 @@ export type ArchivedMediaTable = {
 
 export type Database = {
   connected_accounts: ConnectedAccountsTable;
+  guardianships: GuardianshipsTable;
   calm_sessions: CalmSessionsTable;
   archived_posts: ArchivedPostsTable;
   archived_media: ArchivedMediaTable;

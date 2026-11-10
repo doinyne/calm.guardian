@@ -39,6 +39,7 @@ export function createActivationJob({
   now,
   logger,
   sliceMs = ACTIVATION_SLICE_MS,
+  onCalmModeOn,
 }: {
   calmMode: CalmMode;
   calmSessions: Pick<CalmSessions, 'claim' | 'release'>;
@@ -46,6 +47,8 @@ export function createActivationJob({
   now: () => Date;
   logger: Logger;
   sliceMs?: number;
+  /** Once Calm Mode is on: tell the Guardians. Must be safe to call more than once. */
+  onCalmModeOn?: (calmSessionId: CalmSessionId) => Promise<void>;
 }) {
   return async function runActivation({ calmSessionId }: JobPayload<'activate-calm-mode'>) {
     const id = calmSessionId as CalmSessionId;
@@ -69,6 +72,10 @@ export function createActivationJob({
     }
 
     logger.info({ calmSessionId: id, outcome: result.outcome }, 'Calm Mode activation ran');
+    // On a retry the session is already on: the notice is sent once, so asking again is safe.
+    if (result.outcome === 'active' || result.outcome === 'already-active') {
+      await onCalmModeOn?.(id);
+    }
     const runAt = NEXT_RUN[result.outcome](result, now());
     if (!runAt) return;
     await jobQueue.enqueue('activate-calm-mode', { calmSessionId }, runAt > now() ? { runAt } : {});

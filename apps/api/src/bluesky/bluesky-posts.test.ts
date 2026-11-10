@@ -26,6 +26,7 @@ const CONNECTED: ConnectedAccount = {
   handle: 'dean.bsky.social',
   status: 'active',
   connectedAt: NOW,
+  guardiansCanTurnOn: false,
 };
 
 const blob = (cid: string, mimeType = 'image/jpeg') => ({

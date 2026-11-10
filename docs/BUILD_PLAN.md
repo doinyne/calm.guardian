@@ -148,17 +148,18 @@ self-reviewed PR.
 - [x] Checked against Bluesky: 4 real posts hidden and brought back at their original addresses with identical content hashes (ADR-0016)
 
 ### M6: Guardians
-- [ ] Invite flow: the guardian **accepts by email** before they're notified (anti-abuse, GDPR consent)
-- [ ] The user adds and removes Guardians at any time; a Guardian can step down
-- [ ] Guardians sign in with their own Account (ADR-0011) and see only the accounts they may protect
-- [ ] Per connected account, "Guardians can turn this on" (**off by default**)
-- [ ] A Guardian can only turn Calm Mode **on**, for allowed accounts; the user is told at once and can always turn it off
-- [ ] A Guardian can turn Calm Mode on for an account only when none of its posts are waiting in Review
-- [ ] Turning off a Guardian-started session offers "Change what <Guardian> can do?"
-- [ ] Tests: Guardian without permission, removed Guardian, Guardian with posts waiting in Review, and Guardian turning it off or reading the Archive are all refused
-- [ ] Max guardians defined once in `packages/shared`, enforced on the server
-- [ ] Notification sent **only after activation succeeds**; escaped HTML + plain text; no posts, no reason
-- [ ] Guardian can opt out from any email
+- [x] Invite flow: the guardian **accepts by signing in with the invited address** before they're notified (anti-abuse, GDPR consent); nothing in the email link to forward
+- [x] The user adds and removes Guardians at any time; a Guardian can step down or decline (API)
+- [x] Guardians sign in with their own Account (ADR-0011) and see only the accounts they may protect (API)
+- [x] Per connected account, "Guardians can turn this on" (**off by default**) (API)
+- [x] A Guardian can only turn Calm Mode **on**, for allowed accounts; the user is told at once (email) and can always turn it off
+- [x] A Guardian can turn Calm Mode on for an account only when none of its posts are waiting in Review
+- [ ] Turning off a Guardian-started session offers "Change what <Guardian> can do?" (app)
+- [ ] App screens: Guardians (invite, remove, per-account permission) and, for a Guardian, invitations and the accounts they look after
+- [x] Tests: Guardian without permission, removed Guardian, Guardian with posts waiting in Review, and Guardian turning it off or reading the Archive are all refused
+- [x] Max guardians (3) defined once in `packages/shared`, enforced on the server
+- [x] Notification sent **only after activation succeeds**, once per Calm session; escaped HTML + plain text; no posts, no reason (locally to Mailpit; real provider in M0b)
+- [x] Guardian can opt out from any email (one-tap link, no sign-in)
 
 ### M7: Safety, compliance and polish
 - [ ] Onboarding and settings; region-aware crisis resources; "not a medical device" disclaimer

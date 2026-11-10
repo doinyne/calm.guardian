@@ -55,7 +55,8 @@ user's identity.
 | Connected account OAuth tokens | Act on the user's posts | Yes | No | Postgres (encrypted) | M1 |
 | User content: archived posts (the whole post record: text, links, mentions, replies) and images | Backup and Restore | Yes | No | Postgres, encrypted by the API (ADR-0013, ADR-0014) | M2 |
 | Calm session times and chosen period | Calm Mode state, history | Yes | No | Postgres | M2 |
-| Guardian name and email (third party) | Notify guardians | Yes | Emailed to the guardian; processor: email provider | Postgres | M6 |
+| Guardian email address (third party), and the user's own email shown to their Guardian | Invite the Guardian; tell them when Calm Mode is on | Yes | Emailed to the Guardian; processor: email provider (M0b) | Postgres | M6 |
+| Whether a Guardian opted out of emails, and a private opt-out token | Respect the opt-out | Yes | No | Postgres | M6 |
 | Guardian's own Account and which connected accounts they may protect | Let Guardians turn on Calm Mode (ADR-0011) | Yes | No | Supabase Auth + Postgres | M6 |
 | Who started each Calm session (the user or a Guardian) | Tell the user who turned Calm Mode on | Yes | No | Postgres | M3/M6 |
 | Crash diagnostics | Fix crashes | No (PII scrubbed) | Processor: crash reporting | Crash reporting vendor | M7 |

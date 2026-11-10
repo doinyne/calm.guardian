@@ -218,7 +218,9 @@ describe('Calm Mode routes', () => {
               period: { from: '2026-10-28T12:00:00.000Z', to: TEST_NOW.toISOString() },
               startedAt: TEST_NOW.toISOString(),
               hidden: 2,
+              startedByGuardian: null,
             },
+            guardiansCanTurnOn: false,
           },
           {
             id: standingBy.id,
@@ -226,6 +228,7 @@ describe('Calm Mode routes', () => {
             handle: 'me.bsky.social',
             status: 'active',
             calm: null,
+            guardiansCanTurnOn: false,
           },
         ],
       });

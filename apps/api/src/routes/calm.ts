@@ -14,6 +14,7 @@ import {
   type createCalmMode,
   type StartResult,
 } from '../calm/calm-mode';
+import type { AccountId } from '../accounts/account-id';
 import { ConnectedAccountIdSchema } from '../connections/connected-account';
 import { errorResponse } from '../http/errors';
 import type { RequireAccount } from '../http/require-account';
@@ -24,6 +25,8 @@ export type CalmDependencies = {
   calmMode: Pick<ReturnType<typeof createCalmMode>, 'start' | 'preview' | 'turnOff' | 'status'>;
   jobQueue: JobQueue;
   now: () => Date;
+  /** The user's Guardians' email addresses by guardianship, to say who turned Calm Mode on. */
+  guardianEmails: (accountId: AccountId) => Promise<ReadonlyMap<string, string>>;
 };
 
 /** A preset, or a period the user picked: `from` (null: since the account began) to `to`. */
@@ -57,6 +60,7 @@ export function calmRoutes({
   calmMode,
   jobQueue,
   now,
+  guardianEmails,
 }: CalmDependencies & { requireAccount: RequireAccount }) {
   /** Queues the work for a Calm session that's activating; reports what the app needs to know. */
   async function startedResponse(started: StartResult) {
@@ -80,7 +84,10 @@ export function calmRoutes({
     new Hono()
       .get('/calm', requireAccount, async (c) => {
         const statuses = await calmMode.status(c.var.accountId);
-        return c.json({ connectedAccounts: statuses.map(toStatusResponse) });
+        const emails = await guardianEmails(c.var.accountId);
+        return c.json({
+          connectedAccounts: statuses.map((status) => toStatusResponse(status, emails)),
+        });
       })
 
       .post(
@@ -188,18 +195,26 @@ export function calmRoutes({
 }
 
 /** What the app sees: no Platform IDs, dates as ISO strings. */
-function toStatusResponse({ connectedAccount, calm }: CalmStatus) {
+function toStatusResponse(
+  { connectedAccount, calm }: CalmStatus,
+  guardianEmails: ReadonlyMap<string, string>,
+) {
   return {
     id: connectedAccount.id,
     platform: connectedAccount.platform,
     handle: connectedAccount.handle,
     status: connectedAccount.status,
+    guardiansCanTurnOn: connectedAccount.guardiansCanTurnOn,
     calm: calm && {
       calmSessionId: calm.calmSessionId,
       state: calm.state,
       period: { from: calm.period.from?.toISOString() ?? null, to: calm.period.to.toISOString() },
       startedAt: calm.startedAt.toISOString(),
       hidden: calm.hidden,
+      // A removed Guardian's sessions read as "a Guardian", without their address.
+      startedByGuardian: calm.startedBy
+        ? (guardianEmails.get(calm.startedBy) ?? 'a Guardian')
+        : null,
     },
   };
 }

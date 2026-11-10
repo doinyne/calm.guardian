@@ -24,4 +24,6 @@ export type ConnectedAccount = {
   handle: string;
   status: ConnectionStatus;
   connectedAt: Date;
+  /** The user lets their Guardians turn Calm Mode on for this account (ADR-0011). Off by default. */
+  guardiansCanTurnOn: boolean;
 };

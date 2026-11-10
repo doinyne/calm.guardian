@@ -90,4 +90,7 @@ export interface ReviewArchive {
 
   /** Whether the Account has posts still to review. ADR-0011: Guardians wait until there are none. */
   countToReview(accountId: AccountId): Promise<number>;
+
+  /** The same, for one connected account: what a Guardian's turn-on is checked against. */
+  countToReviewFor(connectedAccountId: ConnectedAccountId): Promise<number>;
 }
