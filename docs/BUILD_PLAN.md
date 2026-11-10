@@ -154,8 +154,8 @@ self-reviewed PR.
 - [x] Per connected account, "Guardians can turn this on" (**off by default**) (API)
 - [x] A Guardian can only turn Calm Mode **on**, for allowed accounts; the user is told at once (email) and can always turn it off
 - [x] A Guardian can turn Calm Mode on for an account only when none of its posts are waiting in Review
-- [ ] Turning off a Guardian-started session offers "Change what <Guardian> can do?" (app)
-- [ ] App screens: Guardians (invite, remove, per-account permission) and, for a Guardian, invitations and the accounts they look after
+- [x] Turning off a Guardian-started session offers "Turn off and change what <Guardian> can do"
+- [x] App screens: Guardians (invite, remove, per-account permission) and, for a Guardian, invitations and the accounts they look after; home shows who turned Calm Mode on and any invitation
 - [x] Tests: Guardian without permission, removed Guardian, Guardian with posts waiting in Review, and Guardian turning it off or reading the Archive are all refused
 - [x] Max guardians (3) defined once in `packages/shared`, enforced on the server
 - [x] Notification sent **only after activation succeeds**, once per Calm session; escaped HTML + plain text; no posts, no reason (locally to Mailpit; real provider in M0b)

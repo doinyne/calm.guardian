@@ -33,6 +33,8 @@ export default function HomeRoute() {
         }
         onConnect={() => router.push('/connect')}
         onReview={() => router.push('/review')}
+        onGuardians={() => router.push('/guardians')}
+        onLookingAfter={() => router.push('/looking-after')}
       />
     </Screen>
   );

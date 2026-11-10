@@ -36,7 +36,11 @@ const postsPhrase = (count: number) => (count === 1 ? '1 post' : `${count.toLoca
 /** The one-line readout under an account's name. */
 export function accountReadout({ platform, status, calm }: CalmAccount): string {
   if (calm?.state === 'activating') return `Hiding posts, newest first · ${calm.hidden} hidden`;
-  if (calm?.state === 'active') return `Calm Mode on · ${calm.hidden} hidden`;
+  if (calm?.state === 'active') {
+    return calm.startedByGuardian
+      ? `Calm Mode on · ${calm.hidden} hidden · turned on by ${calm.startedByGuardian}`
+      : `Calm Mode on · ${calm.hidden} hidden`;
+  }
   if (status === 'needs_reauth') return `${PLATFORM_NAME[platform]} · Sign in again`;
   return `${PLATFORM_NAME[platform]} · Standing by`;
 }

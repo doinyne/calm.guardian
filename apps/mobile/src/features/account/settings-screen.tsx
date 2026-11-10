@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { Link } from 'expo-router';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
@@ -39,6 +40,23 @@ export function SettingsScreen() {
 
   return (
     <HeaderScrollView className="flex-1 bg-background" contentContainerClassName="gap-10 px-6 pt-6">
+      <Section title="Guardians">
+        <Text className="text-muted-foreground">
+          People you trust to turn on Calm Mode for you, and people who&apos;ve asked you to do the
+          same for them.
+        </Text>
+        <Link href="/guardians" asChild>
+          <Button variant="outline" size="lg">
+            <Text>Your Guardians</Text>
+          </Button>
+        </Link>
+        <Link href="/looking-after" asChild>
+          <Button variant="outline" size="lg">
+            <Text>People you look after</Text>
+          </Button>
+        </Link>
+      </Section>
+
       <Section title="Account">
         {email ? <Text>Signed in as {email}</Text> : null}
         <Button variant="outline" size="lg" onPress={() => signOut.mutate()} disabled={isBusy}>
