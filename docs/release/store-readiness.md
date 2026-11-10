@@ -21,7 +21,7 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 | 3 | Web URL for account deletion requests | Google | `apps/web` `/delete-account`: how to delete in the app, or by email without it. Needs the real domain and support email | M1 | 🟨 |
 | 4 | Equivalent privacy-preserving login if Google sign-in is offered | Apple 4.8 | Sign in with Apple, plus email one-time code. The email code is built; Apple and Google sign-in come together | M1 | 🟨 |
 | 5 | Privacy policy URL in the app and in the listing | Both | `apps/web` `/privacy` (draft from the data inventory; legal review in M7); link from onboarding and Settings | M7 | 🟨 |
-| 6 | iOS privacy manifest | Apple | `ios.privacyManifests` in `app.config.ts`, kept current as SDKs are added | M0 | 🟨 |
+| 6 | iOS privacy manifest | Apple | `ios.privacyManifests` in `app.config.ts`, kept current as SDKs are added. SDKs so far add no data collection; `@react-native-community/datetimepicker` (M3) is a local UI control | M0 | 🟨 |
 | 7 | Export compliance | Apple | `ios.config.usesNonExemptEncryption: false` (standard HTTPS only) | M0 | 🟨 |
 | 8 | App Privacy label / Data safety form | Both | See the data inventory below | M9 | ⬜ |
 | 9 | No medical claims; disclaimer | Apple 1.4.1, Google health policy | ADR-0008. "Not a medical device" in onboarding and Settings | M7 | ⬜ |

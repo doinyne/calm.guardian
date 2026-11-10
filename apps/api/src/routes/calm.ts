@@ -1,4 +1,10 @@
-import { CALM_PERIOD_PRESETS, presetCalmPeriod } from '@calm-guardian/shared';
+import {
+  CALM_PERIOD_PRESETS,
+  customCalmPeriod,
+  InvalidCalmPeriodError,
+  presetCalmPeriod,
+  type CalmPeriod,
+} from '@calm-guardian/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
@@ -20,8 +26,26 @@ export type CalmDependencies = {
   now: () => Date;
 };
 
-/** Presets only for now; custom periods come with the app's date picker (the core accepts them). */
-const PeriodBodySchema = z.object({ period: z.enum(CALM_PERIOD_PRESETS) });
+/** A preset, or a period the user picked: `from` (null: since the account began) to `to`. */
+const PeriodBodySchema = z.object({
+  period: z.union([
+    z.enum(CALM_PERIOD_PRESETS),
+    z.object({
+      from: z.iso.datetime({ offset: true }).nullable(),
+      to: z.iso.datetime({ offset: true }),
+    }),
+  ]),
+});
+type PeriodChoice = z.infer<typeof PeriodBodySchema>['period'];
+
+/** The period the user chose, measured against the server's clock. Throws `InvalidCalmPeriodError`. */
+function periodFrom(choice: PeriodChoice, now: Date): CalmPeriod {
+  if (typeof choice === 'string') return presetCalmPeriod(choice, now);
+  return customCalmPeriod(
+    { from: choice.from === null ? null : new Date(choice.from), to: new Date(choice.to) },
+    now,
+  );
+}
 const ConnectionParamsSchema = z.object({ id: ConnectedAccountIdSchema });
 
 /**
@@ -46,6 +70,9 @@ export function calmRoutes({
     return null;
   }
 
+  const invalidPeriod = (c: Context, error: InvalidCalmPeriodError) =>
+    errorResponse(c, 400, { code: 'validation_failed', message: error.message });
+
   const notFound = (c: Context) =>
     errorResponse(c, 404, { code: 'not_found', message: 'That account is not connected.' });
 
@@ -66,11 +93,12 @@ export function calmRoutes({
             const preview = await calmMode.preview({
               accountId: c.var.accountId,
               connectedAccountId: c.req.valid('param').id,
-              period: presetCalmPeriod(c.req.valid('json').period, now()),
+              period: periodFrom(c.req.valid('json').period, now()),
             });
             return c.json(preview);
           } catch (error) {
             if (error instanceof ConnectedAccountNotFoundError) return notFound(c);
+            if (error instanceof InvalidCalmPeriodError) return invalidPeriod(c, error);
             throw error;
           }
         },
@@ -87,10 +115,11 @@ export function calmRoutes({
             started = await calmMode.start({
               accountId: c.var.accountId,
               connectedAccountId: c.req.valid('param').id,
-              period: presetCalmPeriod(c.req.valid('json').period, now()),
+              period: periodFrom(c.req.valid('json').period, now()),
             });
           } catch (error) {
             if (error instanceof ConnectedAccountNotFoundError) return notFound(c);
+            if (error instanceof InvalidCalmPeriodError) return invalidPeriod(c, error);
             throw error;
           }
 
@@ -107,7 +136,13 @@ export function calmRoutes({
 
       // "Turn on for all": every connected account that can be protected.
       .post('/calm', requireAccount, validate('json', PeriodBodySchema), async (c) => {
-        const period = presetCalmPeriod(c.req.valid('json').period, now());
+        let period;
+        try {
+          period = periodFrom(c.req.valid('json').period, now());
+        } catch (error) {
+          if (error instanceof InvalidCalmPeriodError) return invalidPeriod(c, error);
+          throw error;
+        }
         const results = [];
         for (const { connectedAccount } of await calmMode.status(c.var.accountId)) {
           const started = await calmMode.start({
@@ -136,6 +171,7 @@ export function calmRoutes({
             });
           } catch (error) {
             if (error instanceof ConnectedAccountNotFoundError) return notFound(c);
+            if (error instanceof InvalidCalmPeriodError) return invalidPeriod(c, error);
             throw error;
           }
           if (result === 'still-activating') {
