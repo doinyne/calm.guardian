@@ -18,6 +18,7 @@ export function aCalmAccount(
     handle: 'doinyne.bsky.social',
     status: 'active',
     calm: null,
+    guardiansCanTurnOn: false,
     ...overrides,
     id: (overrides.id ?? '6f1c2a4e-0b7d-4c1e-9a3f-2d5e8b7c6a10') as CalmAccount['id'],
   };
@@ -32,6 +33,7 @@ export const calmSession = (
   period: { from: '2026-10-28T12:00:00.000Z', to: '2026-11-04T12:00:00.000Z' },
   startedAt: '2026-11-04T12:00:00.000Z',
   hidden,
+  startedByGuardian: null,
 });
 
 type Reply = { status?: number; body?: unknown };
