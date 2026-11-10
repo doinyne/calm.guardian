@@ -3,6 +3,7 @@ import type { CalmPeriod } from '@calm-guardian/shared';
 import type { AccountId } from '../accounts/account-id';
 import type { ConnectedAccount, ConnectedAccountId } from '../connections/connected-account';
 import type { ConnectedAccountsRepository } from '../connections/connected-accounts-repository';
+import type { GuardianshipId } from '../guardians/guardianship';
 import type { Logger } from '../logger';
 import type { Archive, BackedUpPost, MediaCopy } from './archive';
 import type { CalmSession, CalmSessionFailure, CalmSessionId, CalmSessions } from './calm-session';
@@ -115,22 +116,26 @@ export function createCalmMode({
     accountId,
     connectedAccountId,
     period,
+    startedBy,
   }: {
     accountId: AccountId;
     connectedAccountId: ConnectedAccountId;
     period: CalmPeriod;
+    /** The Guardian turning it on; omitted when the user does. */
+    startedBy?: GuardianshipId;
   }): Promise<StartResult> {
     const connectedAccount = await connectedAccounts.findForAccount({
       accountId,
       connectedAccountId,
     });
     if (!connectedAccount) throw new ConnectedAccountNotFoundError();
-    return startFor(connectedAccount, period);
+    return startFor(connectedAccount, period, startedBy);
   }
 
   async function startFor(
     connectedAccount: ConnectedAccount,
     period: CalmPeriod,
+    startedBy?: GuardianshipId,
   ): Promise<StartResult> {
     if (connectedAccount.status !== 'active') return { outcome: 'needs-sign-in' };
 
@@ -139,6 +144,7 @@ export function createCalmMode({
       connectedAccountId: connectedAccount.id,
       period,
       startedAt: now(),
+      ...(startedBy ? { startedBy } : {}),
     });
     return calmSession.state === 'active'
       ? { outcome: 'already-active', calmSessionId: calmSession.id }

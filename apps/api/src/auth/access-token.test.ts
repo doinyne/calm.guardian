@@ -35,7 +35,16 @@ describe('verifying an access token', () => {
   it('returns the Account the token was issued to', async () => {
     const accountId = randomUUID();
 
-    await expect(verify(await issue({ sub: accountId }))).resolves.toEqual({ accountId });
+    await expect(verify(await issue({ sub: accountId }))).resolves.toEqual({
+      accountId,
+      email: 'person@example.com',
+    });
+  });
+
+  it('returns the signed-in email address, lower-cased', async () => {
+    await expect(verify(await issue({ email: 'Alex@Example.com' }))).resolves.toMatchObject({
+      email: 'alex@example.com',
+    });
   });
 
   it('rejects an expired token', async () => {

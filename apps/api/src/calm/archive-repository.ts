@@ -226,6 +226,18 @@ export function createArchiveRepository({
       return Number(count);
     },
 
+    async countToReviewFor(connectedAccountId: ConnectedAccountId) {
+      const { count } = await db
+        .selectFrom('archived_posts')
+        .select((eb) => eb.fn.countAll<string>().as('count'))
+        .where('connected_account_id', '=', connectedAccountId)
+        .where('hidden_at', 'is not', null)
+        .where('restored_at', 'is', null)
+        .where('kept_hidden_at', 'is', null)
+        .executeTakeFirstOrThrow();
+      return Number(count);
+    },
+
     async readPost(archivedPostId) {
       const row = await db
         .selectFrom('archived_posts')

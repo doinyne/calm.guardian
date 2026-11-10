@@ -71,6 +71,7 @@ export class FakeConnectedAccounts implements ConnectedAccountsRepository {
       handle,
       status: 'active',
       connectedAt: new Date(),
+      guardiansCanTurnOn: false,
     };
     this.accounts.push(connected);
     return Promise.resolve(connected);
@@ -85,5 +86,21 @@ export class FakeConnectedAccounts implements ConnectedAccountsRepository {
     );
     if (index >= 0) this.accounts.splice(index, 1);
     return Promise.resolve();
+  }
+
+  findById(connectedAccountId: ConnectedAccountId) {
+    return Promise.resolve(this.accounts.find((account) => account.id === connectedAccountId));
+  }
+
+  setGuardiansCanTurnOn({
+    accountId,
+    connectedAccountId,
+    allowed,
+  }: Parameters<ConnectedAccountsRepository['setGuardiansCanTurnOn']>[0]) {
+    const account = this.accounts.find(
+      (candidate) => candidate.id === connectedAccountId && candidate.accountId === accountId,
+    );
+    if (account) account.guardiansCanTurnOn = allowed;
+    return Promise.resolve(account !== undefined);
   }
 }

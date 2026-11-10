@@ -31,9 +31,11 @@ const AccessTokenClaimsSchema = z.object({
   role: z.literal('authenticated'),
   // Anonymous users also get the `authenticated` role, but they don't have an Account.
   is_anonymous: z.literal(false).optional(),
+  // Proven by the emailed sign-in code. Guardians accept invitations sent to it (ADR-0011).
+  email: z.email().optional(),
 });
 
-export type VerifiedAccessToken = { accountId: AccountId };
+export type VerifiedAccessToken = { accountId: AccountId; email: string | null };
 export type VerifyAccessToken = (token: string) => Promise<VerifiedAccessToken>;
 
 export type AccessTokenVerifierDependencies = {
@@ -68,7 +70,7 @@ export function createAccessTokenVerifier({
     const claims = AccessTokenClaimsSchema.safeParse(payload);
     if (!claims.success) throw new AccessTokenRejectedError('unexpected_claims');
 
-    return { accountId: claims.data.sub };
+    return { accountId: claims.data.sub, email: claims.data.email?.toLowerCase() ?? null };
   };
 }
 

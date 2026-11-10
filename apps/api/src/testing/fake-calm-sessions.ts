@@ -25,6 +25,7 @@ export class FakeCalmSessions implements CalmSessions {
     connectedAccountId,
     period,
     startedAt,
+    startedBy,
   }: Parameters<CalmSessions['openFor']>[0]) {
     const open = this.sessions.find(
       (session) => session.connectedAccountId === connectedAccountId && isOpen(session.state),
@@ -40,6 +41,7 @@ export class FakeCalmSessions implements CalmSessions {
       startedAt,
       failure: null,
       resumeCursor: null,
+      startedBy: startedBy ?? null,
     };
     this.sessions.push(session);
     return Promise.resolve({ ...session });

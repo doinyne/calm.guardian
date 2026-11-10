@@ -6,7 +6,7 @@ import { AccessTokenRejectedError, type VerifyAccessToken } from '../auth/access
 import type { Logger } from '../logger';
 import { errorResponse } from './errors';
 
-export type AccountVariables = { accountId: AccountId };
+export type AccountVariables = { accountId: AccountId; accountEmail: string | null };
 
 const BEARER_TOKEN = /^Bearer (\S+)$/;
 
@@ -26,8 +26,9 @@ export function requireAccount({
     if (!token) return respondUnauthorized(c);
 
     try {
-      const { accountId } = await verifyAccessToken(token);
+      const { accountId, email } = await verifyAccessToken(token);
       c.set('accountId', accountId);
+      c.set('accountEmail', email);
     } catch (error) {
       if (!(error instanceof AccessTokenRejectedError)) throw error;
 

@@ -11,6 +11,7 @@ import type {
   ReviewState,
 } from '../calm/archive';
 import type { CalmSessionId } from '../calm/calm-session';
+import type { ConnectedAccountId } from '../connections/connected-account';
 import type { PlatformPost } from '../calm/platform-posts';
 
 export type FakeArchivedPost = BackedUpPost & {
@@ -169,6 +170,15 @@ export class FakeArchive implements Archive, ReviewArchive {
     return Promise.resolve(
       this.all().filter(
         (entry) => entry.accountId === accountId && reviewStateOf(entry) === 'to-review',
+      ).length,
+    );
+  }
+
+  countToReviewFor(connectedAccountId: ConnectedAccountId) {
+    return Promise.resolve(
+      this.all().filter(
+        (entry) =>
+          entry.connectedAccountId === connectedAccountId && reviewStateOf(entry) === 'to-review',
       ).length,
     );
   }

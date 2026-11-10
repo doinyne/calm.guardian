@@ -44,6 +44,10 @@ export type ConnectedAccountsRepository = {
   }) => Promise<ConnectedAccount>;
   /** Removes the connection and its stored session. Does nothing if it's already gone. */
   disconnect: (details: AccountsConnection) => Promise<void>;
+  /** Any Account's connected account. Only for checks that then confirm who may act on it. */
+  findById: (connectedAccountId: ConnectedAccountId) => Promise<ConnectedAccount | undefined>;
+  /** Returns false if the Account has no such connected account. */
+  setGuardiansCanTurnOn: (details: AccountsConnection & { allowed: boolean }) => Promise<boolean>;
 };
 
 /** Every query is scoped by the Account it acts for (ADR-0002). */
@@ -108,6 +112,25 @@ export function createConnectedAccountsRepository(db: Db): ConnectedAccountsRepo
       return toConnectedAccount(row);
     },
 
+    async findById(connectedAccountId) {
+      const row = await db
+        .selectFrom('connected_accounts')
+        .selectAll()
+        .where('id', '=', connectedAccountId)
+        .executeTakeFirst();
+      return row ? toConnectedAccount(row) : undefined;
+    },
+
+    async setGuardiansCanTurnOn({ accountId, connectedAccountId, allowed }) {
+      const result = await db
+        .updateTable('connected_accounts')
+        .set({ guardians_can_turn_on: allowed, updated_at: sql`now()` })
+        .where('id', '=', connectedAccountId)
+        .where('account_id', '=', accountId)
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
+    },
+
     async disconnect({ accountId, connectedAccountId }) {
       await db
         .deleteFrom('connected_accounts')
@@ -131,5 +154,6 @@ function toConnectedAccount(row: Selectable<ConnectedAccountsTable>): ConnectedA
     handle: row.handle,
     status: ConnectionStatusSchema.parse(row.status),
     connectedAt: row.created_at,
+    guardiansCanTurnOn: row.guardians_can_turn_on,
   };
 }
