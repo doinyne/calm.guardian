@@ -1,7 +1,21 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { aCalmAccount, renderWithQueries, stubApi } from './testing';
+import type * as ReactNative from 'react-native';
+
 import { TurnOnCalmScreen } from './turn-on-calm-screen';
+
+// The native picker, as a plain element whose `onChange` a test can call.
+jest.mock('@react-native-community/datetimepicker', () => {
+  const { View } = jest.requireActual<typeof ReactNative>('react-native');
+  return {
+    __esModule: true,
+    default: (props: { accessibilityLabel: string }) => (
+      <View testID={`picker ${props.accessibilityLabel}`} {...props} />
+    ),
+    DateTimePickerAndroid: { open: jest.fn() },
+  };
+});
 
 const ME = aCalmAccount();
 const PREVIEW = `POST /connections/${ME.id}/calm/preview`;
@@ -85,5 +99,49 @@ describe('turning on Calm Mode', () => {
     expect(
       await screen.findByText('There are no posts from this period to hide.'),
     ).toBeOnTheScreen();
+  });
+
+  describe('choosing dates', () => {
+    it('counts and turns on for the dates picked', async () => {
+      const { requests, onDone } = await renderScreen({
+        [PREVIEW]: { body: { posts: 4, more: false } },
+        [TURN_ON]: { status: 202, body: { calm: { calmSessionId: 'x', state: 'activating' } } },
+      });
+      const from = new Date('2026-11-01T21:00:00.000Z');
+      const to = new Date('2026-11-02T03:00:00.000Z');
+
+      await fireEvent.press(await screen.findByRole('radio', { name: 'Choose dates' }));
+      await fireEvent(screen.getByTestId('picker From'), 'onChange', { type: 'set' }, from);
+      await fireEvent(screen.getByTestId('picker To'), 'onChange', { type: 'set' }, to);
+      await fireEvent.press(screen.getByRole('button', { name: 'Turn on Calm Mode' }));
+
+      await waitFor(() => expect(onDone).toHaveBeenCalled());
+      const picked = { from: from.toISOString(), to: to.toISOString() };
+      expect(requests).toContainEqual({
+        method: 'POST',
+        path: `/connections/${ME.id}/calm/preview`,
+        body: { period: picked },
+      });
+      expect(requests).toContainEqual({
+        method: 'POST',
+        path: `/connections/${ME.id}/calm`,
+        body: { period: picked },
+      });
+    });
+
+    it("explains, and won't turn on, when the start is after the end", async () => {
+      await renderScreen({ [PREVIEW]: { body: { posts: 4, more: false } } });
+
+      await fireEvent.press(await screen.findByRole('radio', { name: 'Choose dates' }));
+      await fireEvent(
+        screen.getByTestId('picker From'),
+        'onChange',
+        { type: 'set' },
+        new Date('2099-01-01T00:00:00.000Z'),
+      );
+
+      expect(screen.getByText('The start needs to be before the end.')).toBeOnTheScreen();
+      expect(screen.getByRole('button', { name: 'Turn on Calm Mode' })).toBeDisabled();
+    });
   });
 });

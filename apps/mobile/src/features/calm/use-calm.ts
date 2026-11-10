@@ -1,4 +1,4 @@
-import type { CalmPeriodPreset } from '@calm-guardian/shared';
+import { toApiPeriod, type PeriodChoice } from './calm-copy';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/api/client';
@@ -39,19 +39,20 @@ export type CalmAccount = NonNullable<ReturnType<typeof useCalmStatus>['data']>[
 export function useCalmPreview(
   target: CalmTarget,
   connectedAccountIds: readonly string[],
-  period: CalmPeriodPreset,
+  period: PeriodChoice,
+  { enabled = true }: { enabled?: boolean } = {},
 ) {
   const ids = target === 'all' ? connectedAccountIds : [target.connectedAccountId];
   return useQuery({
-    queryKey: ['calm-preview', ids, period],
-    enabled: ids.length > 0,
+    queryKey: ['calm-preview', ids, toApiPeriod(period)],
+    enabled: enabled && ids.length > 0,
     queryFn: async () => {
       let posts = 0;
       let more = false;
       for (const id of ids) {
         const response = await apiClient.connections[':id'].calm.preview.$post({
           param: { id },
-          json: { period },
+          json: { period: toApiPeriod(period) },
         });
         if (!response.ok) throw new Error(`Preview responded ${response.status}`);
         const preview = await response.json();
@@ -73,14 +74,14 @@ export function useTurnOnCalm() {
       period,
     }: {
       target: CalmTarget;
-      period: CalmPeriodPreset;
+      period: PeriodChoice;
     }): Promise<TurnOnOutcome> => {
       const response =
         target === 'all'
-          ? await apiClient.calm.$post({ json: { period } })
+          ? await apiClient.calm.$post({ json: { period: toApiPeriod(period) } })
           : await apiClient.connections[':id'].calm.$post({
               param: { id: target.connectedAccountId },
-              json: { period },
+              json: { period: toApiPeriod(period) },
             });
       if (response.status === 409) return 'needs-sign-in';
       if (!response.ok) throw new Error(`Turning on responded ${response.status}`);

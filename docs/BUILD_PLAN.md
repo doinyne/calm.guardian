@@ -129,7 +129,7 @@ self-reviewed PR.
 - [x] Double-tap prevented (one open Calm session per connected account in the database; buttons disabled while sending)
 - [x] Calm Mode indicator on home and Settings (modals are short-lived and skip it)
 - [x] Status survives an app restart; deactivate finds the active session server-side
-- [ ] Custom from–to period picker (`@react-native-community/datetimepicker`, a native rebuild; the API core already accepts custom periods)
+- [x] Custom from–to period: **Choose dates** with From/To pickers (`@react-native-community/datetimepicker`, a native rebuild); the API checks it against its own clock
 - [x] Wording for long activations: a rough time from Bluesky's ~5,000 deletes an hour, "newest first, carries on if you close the app"
 
 ### M4: Sweep

@@ -12,6 +12,23 @@ export const PERIOD_LABEL: Record<CalmPeriodPreset, string> = {
 
 export const DEFAULT_PERIOD: CalmPeriodPreset = 'last-7-days';
 
+/** What the user chose: a preset, or dates they picked. */
+export type PeriodChoice = CalmPeriodPreset | { from: Date; to: Date };
+
+/** How the API takes it. The server checks a picked period against its own clock. */
+export function toApiPeriod(choice: PeriodChoice) {
+  return typeof choice === 'string'
+    ? choice
+    : { from: choice.from.toISOString(), to: choice.to.toISOString() };
+}
+
+/** Why picked dates can't be used, or `null` if they can. */
+export function pickedPeriodProblem({ from, to }: { from: Date; to: Date }, now: Date) {
+  if (from >= to) return 'The start needs to be before the end.';
+  if (to > now) return "The end can't be in the future.";
+  return null;
+}
+
 const PLATFORM_NAME: Record<CalmAccount['platform'], string> = { bluesky: 'Bluesky' };
 
 const postsPhrase = (count: number) => (count === 1 ? '1 post' : `${count.toLocaleString()} posts`);
