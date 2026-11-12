@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored). No secrets here: they go into Secret Manager with gcloud.
+project_id   = "calm-guardian-demo"
+supabase_url = "https://abcdefgh.supabase.co"
+email_from   = "Calm Guardian <you@gmail.com>"
+# Set after the first image is pushed (see docs/release/demo-deployment.md):
+# image = "europe-west2-docker.pkg.dev/calm-guardian-demo/calm-guardian/api:v1"
