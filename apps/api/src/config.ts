@@ -49,6 +49,8 @@ export type Config = {
   smtpUrl: string | null;
   /** The API's public address, for links in emails. */
   publicApiUrl: URL;
+  /** Who emails come from. With Gmail's SMTP it must be that Gmail address. */
+  emailFrom: string;
 };
 
 /** Every 5 minutes (ADR-0015). Shorten it locally to watch the Sweep work. */
@@ -136,6 +138,7 @@ const EnvSchema = z.object({
     .min(MIN_SWEEP_INTERVAL_SECONDS)
     .default(DEFAULT_SWEEP_INTERVAL_SECONDS),
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+  EMAIL_FROM: z.string().min(3).default('Calm Guardian <hello@calmguardian.invalid>'),
   PUBLIC_API_URL: z
     .url()
     .refine(isSecureOrLocal, 'must use https (http is allowed only for a local API)')
@@ -172,6 +175,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     SWEEP_INTERVAL_SECONDS,
     SMTP_URL,
     PUBLIC_API_URL,
+    EMAIL_FROM,
   } = result.data;
   return {
     port: PORT,
@@ -186,6 +190,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     sweepIntervalMs: SWEEP_INTERVAL_SECONDS * 1000,
     smtpUrl: SMTP_URL ?? null,
     publicApiUrl: new URL(PUBLIC_API_URL),
+    emailFrom: EMAIL_FROM,
   };
 }
 

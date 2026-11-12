@@ -133,7 +133,9 @@ const guardianNotices = createGuardianNotices({
   guardianships,
   connectedAccounts,
   calmSessions,
-  email: config.smtpUrl ? createSmtpEmailSender(config.smtpUrl) : createLoggingEmailSender(logger),
+  email: config.smtpUrl
+    ? createSmtpEmailSender({ smtpUrl: config.smtpUrl, from: config.emailFrom })
+    : createLoggingEmailSender(logger),
   publicApiUrl: config.publicApiUrl,
 });
 

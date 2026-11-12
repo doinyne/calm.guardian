@@ -77,6 +77,13 @@ export function ConnectAccountScreen({
           Add as many as you like, even several on one platform. You sign in on the platform&apos;s
           own page, so we never see your password.
         </Text>
+        <View className="gap-1 rounded-xl border border-hope p-3" role="note">
+          <MonoLabel className="text-hope">Demo</MonoLabel>
+          <Text className="text-sm">
+            This is a demo. Please connect a test Bluesky account, not one you rely on: Calm Mode
+            really does hide its posts.
+          </Text>
+        </View>
       </View>
 
       <View className="gap-3">
