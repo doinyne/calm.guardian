@@ -47,6 +47,7 @@ describe('connecting Bluesky', () => {
     await expect(connectBluesky(browser)).resolves.toBe('connected');
 
     expect(browser.opened).toEqual([[AUTHORIZATION_URL, CONNECT_RETURN_URL]]);
+    expect(requests[0]).toMatchObject({ body: { returnUrl: CONNECT_RETURN_URL } });
     expect(requests.at(-1)).toMatchObject({
       url: expect.stringMatching(/\/connections\/bluesky\/complete$/) as string,
       body: { code: 'single-use-code' },

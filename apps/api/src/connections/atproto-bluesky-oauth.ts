@@ -8,6 +8,8 @@ import {
 } from '@atproto/oauth-client-node';
 import { z } from 'zod';
 
+import { isAppReturnUrl } from '@calm-guardian/shared';
+
 import { AccountIdSchema } from '../accounts/account-id';
 import { createAtprotoBlueskyRepo } from '../bluesky/atproto-bluesky-repo';
 import type { BlueskyRepoFor } from '../bluesky/bluesky-repo';
@@ -34,7 +36,10 @@ const BLUESKY_SIGN_IN = 'https://bsky.social';
 const SIGN_IN_STATE_TTL_MS = 60 * 60 * 1000;
 
 /** Kept by the library in our encrypted state store; it never leaves the server. */
-const AppStateSchema = z.object({ startedBy: AccountIdSchema });
+const AppStateSchema = z.object({
+  startedBy: AccountIdSchema,
+  returnUrl: z.string().refine(isAppReturnUrl).optional(),
+});
 
 /**
  * AT Protocol OAuth through `@atproto/oauth-client-node`, the only file that knows the library.
@@ -67,20 +72,28 @@ export function createAtprotoBlueskyOAuth({
   });
 
   return {
-    authorizationUrl: (startedBy) =>
-      client.authorize(BLUESKY_SIGN_IN, { scope: SCOPE, state: JSON.stringify({ startedBy }) }),
+    authorizationUrl: ({ startedBy, returnUrl }) =>
+      client.authorize(BLUESKY_SIGN_IN, {
+        scope: SCOPE,
+        state: JSON.stringify({ startedBy, ...(returnUrl ? { returnUrl } : {}) }),
+      }),
 
     async completeSignIn(callbackParams) {
       try {
         const { session, state } = await client.callback(callbackParams);
-        const { startedBy } = AppStateSchema.parse(JSON.parse(state ?? 'null'));
+        const { startedBy, returnUrl } = AppStateSchema.parse(JSON.parse(state ?? 'null'));
         const { data } = await new Agent(session).com.atproto.repo.describeRepo({
           repo: session.did,
         });
-        return { did: session.did as ExternalAccountId, handle: data.handle, startedBy };
+        return {
+          did: session.did as ExternalAccountId,
+          handle: data.handle,
+          startedBy,
+          ...(returnUrl ? { returnUrl } : {}),
+        };
       } catch (error) {
         if (error instanceof OAuthCallbackError && error.params.get('error') === 'access_denied') {
-          throw new BlueskySignInCancelledError();
+          throw new BlueskySignInCancelledError(returnUrlIn(error.state));
         }
         throw error;
       }
@@ -91,4 +104,15 @@ export function createAtprotoBlueskyOAuth({
     /** Signs in as the account with its stored session, refreshing tokens if they've expired. */
     repoFor: async (did) => createAtprotoBlueskyRepo(await client.restore(did)),
   };
+}
+
+/** The return link kept in a sign-in's state, if it's there and allowed. */
+function returnUrlIn(state: string | undefined): string | undefined {
+  if (!state) return undefined;
+  try {
+    return AppStateSchema.parse(JSON.parse(state)).returnUrl;
+  } catch {
+    // Unreadable state: the callback falls back to the configured link.
+    return undefined;
+  }
 }

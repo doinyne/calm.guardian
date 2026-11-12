@@ -6,13 +6,15 @@ export type BlueskySignIn = {
   did: ExternalAccountId;
   handle: string;
   startedBy: AccountId;
+  /** Where the app asked to be sent back, if it said (ADR-0017). */
+  returnUrl?: string;
 };
 
 /** The user chose not to approve Calm Guardian on Bluesky. Not an error worth logging. */
 export class BlueskySignInCancelledError extends Error {
   override name = 'BlueskySignInCancelledError';
 
-  constructor() {
+  constructor(readonly returnUrl?: string) {
     super('The user cancelled signing in to Bluesky');
   }
 }
@@ -23,7 +25,7 @@ export class BlueskySignInCancelledError extends Error {
  */
 export type BlueskyOAuth = {
   /** Where to send the user to approve Calm Guardian. The Account is remembered server-side. */
-  authorizationUrl: (startedBy: AccountId) => Promise<URL>;
+  authorizationUrl: (input: { startedBy: AccountId; returnUrl?: string }) => Promise<URL>;
   /**
    * Finishes Bluesky's redirect: swaps its code for tokens (stored encrypted) and says who signed in.
    * Throws `BlueskySignInCancelledError` if the user said no.
