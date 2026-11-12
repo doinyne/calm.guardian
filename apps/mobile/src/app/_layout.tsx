@@ -58,6 +58,7 @@ function RootNavigator() {
         <Stack.Protected guard={!isSignedIn} redirectTo="/">
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
+        <Stack.Screen name="support" options={{ presentation: 'modal' }} />
       </Stack>
       <PortalHost />
     </ThemeProvider>

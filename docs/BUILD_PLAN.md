@@ -162,7 +162,8 @@ self-reviewed PR.
 - [x] Guardian can opt out from any email (one-tap link, no sign-in)
 
 ### M7: Safety, compliance and polish
-- [ ] Onboarding and settings; region-aware crisis resources; "not a medical device" disclaimer
+- [x] Onboarding (welcome → How it works → sign in); region-aware crisis resources (Support, reachable signed in or out, from Settings and the turn-on screen); "not a medical device" in How it works, Support and Settings → About
+- [ ] **Dean:** check every helpline number against the services' own sites before release (`packages/shared/src/support.ts`, `SUPPORT_LAST_CHECKED`)
 - [ ] Privacy policy and terms (legally reviewed), linked in the app and on the website
 - [ ] Accessibility pass (labels, contrast, font scaling, screen reader), dark mode QA
 - [ ] Crash reporting with PII scrubbing; error boundary; offline handling

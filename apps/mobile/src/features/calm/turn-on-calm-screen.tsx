@@ -1,5 +1,6 @@
 import { CALM_PERIOD_PRESETS, THEME_COLORS } from '@calm-guardian/shared';
 import { X } from 'lucide-react-native';
+import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -178,6 +179,12 @@ export function TurnOnCalmScreen({ target, onDone }: { target: CalmTarget; onDon
       {turnOn.error ? (
         <ErrorMessage>We couldn&apos;t turn on Calm Mode. Please try again.</ErrorMessage>
       ) : null}
+
+      <Link href="/support" asChild>
+        <Button variant="link">
+          <Text className="text-muted-foreground underline">Need to talk to someone?</Text>
+        </Button>
+      </Link>
     </ScrollView>
   );
 }
