@@ -51,7 +51,17 @@ export type Config = {
   publicApiUrl: URL;
   /** Who emails come from. With Gmail's SMTP it must be that Gmail address. */
   emailFrom: string;
+  jobs: JobsConfig;
 };
+
+/**
+ * Where background work runs (ADR-0015, ADR-0017):
+ * - `in-process`: inside the API, with a timer for the Sweep. Local development.
+ * - `cloud-tasks`: Cloud Tasks delivers each job to `/internal/jobs/*` and Cloud Scheduler starts the
+ *   Sweep, so a deployed API can scale to zero and stay on the free tier.
+ */
+export type JobsConfig =
+  { kind: 'in-process' } | { kind: 'cloud-tasks'; queue: string; invokerEmail: string };
 
 /** Every 5 minutes (ADR-0015). Shorten it locally to watch the Sweep work. */
 const DEFAULT_SWEEP_INTERVAL_SECONDS = 300;
@@ -139,6 +149,15 @@ const EnvSchema = z.object({
     .default(DEFAULT_SWEEP_INTERVAL_SECONDS),
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
   EMAIL_FROM: z.string().min(3).default('Calm Guardian <hello@calmguardian.invalid>'),
+  // Both set: background work through Cloud Tasks. Neither: in-process (local).
+  CLOUD_TASKS_QUEUE: z
+    .string()
+    .regex(
+      /^projects\/[^/]+\/locations\/[^/]+\/queues\/[^/]+$/,
+      'must be projects/<p>/locations/<l>/queues/<q>',
+    )
+    .optional(),
+  TASKS_INVOKER_EMAIL: z.email().optional(),
   PUBLIC_API_URL: z
     .url()
     .refine(isSecureOrLocal, 'must use https (http is allowed only for a local API)')
@@ -176,6 +195,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     SMTP_URL,
     PUBLIC_API_URL,
     EMAIL_FROM,
+    CLOUD_TASKS_QUEUE,
+    TASKS_INVOKER_EMAIL,
   } = result.data;
   return {
     port: PORT,
@@ -191,7 +212,18 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     smtpUrl: SMTP_URL ?? null,
     publicApiUrl: new URL(PUBLIC_API_URL),
     emailFrom: EMAIL_FROM,
+    jobs: jobsConfig(CLOUD_TASKS_QUEUE, TASKS_INVOKER_EMAIL),
   };
+}
+
+function jobsConfig(queue: string | undefined, invokerEmail: string | undefined): JobsConfig {
+  if (queue && invokerEmail) return { kind: 'cloud-tasks', queue, invokerEmail };
+  if (queue || invokerEmail) {
+    throw new ConfigError(
+      'Invalid environment configuration:\n  CLOUD_TASKS_QUEUE and TASKS_INVOKER_EMAIL: set both, or neither',
+    );
+  }
+  return { kind: 'in-process' };
 }
 
 function blueskyClient(publicApiUrl: URL, developmentRedirect: string | undefined): BlueskyClient {

@@ -178,4 +178,25 @@ describe('loadConfig', () => {
       /BLUESKY_REDIRECT_URL/,
     );
   });
+
+  it('runs background work in-process unless Cloud Tasks is configured', () => {
+    expect(loadConfig(REQUIRED_ENV).jobs).toEqual({ kind: 'in-process' });
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        CLOUD_TASKS_QUEUE: 'projects/demo/locations/europe-west2/queues/calm-guardian-jobs',
+        TASKS_INVOKER_EMAIL: 'calm-guardian-tasks@demo.iam.gserviceaccount.com',
+      }).jobs,
+    ).toEqual({
+      kind: 'cloud-tasks',
+      queue: 'projects/demo/locations/europe-west2/queues/calm-guardian-jobs',
+      invokerEmail: 'calm-guardian-tasks@demo.iam.gserviceaccount.com',
+    });
+  });
+
+  it('refuses half a Cloud Tasks setup', () => {
+    expect(() =>
+      loadConfig({ ...REQUIRED_ENV, CLOUD_TASKS_QUEUE: 'projects/a/locations/b/queues/c' }),
+    ).toThrow(/set both, or neither/);
+  });
 });

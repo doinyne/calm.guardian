@@ -23,7 +23,10 @@ import { createConnectedAccountsRepository } from './connections/connected-accou
 import { createConnectionRemoval } from './connections/connection-removal';
 import { createPendingConnections } from './connections/pending-connections';
 import { createSecretBox } from './crypto/secret-box';
+import { createGoogleCallerVerifier, GOOGLE_SIGNING_KEYS_URL } from './internal/google-caller';
+import { createCloudTasksJobQueue, metadataServerAccessToken } from './jobs/cloud-tasks-job-queue';
 import { createInProcessJobQueue } from './jobs/in-process-job-queue';
+import type { JobHandlers } from './jobs/job-queue';
 import { createDatabase, databaseReadinessCheck } from './db/database';
 import { createLogger } from './logger';
 
@@ -82,30 +85,31 @@ const restore = createRestore({
   logger,
 });
 
-// Local and single-instance for now; Cloud Tasks replaces it when we deploy (ADR-0015, M0b).
+// Background work (ADR-0015, ADR-0017): in this process locally; through Cloud Tasks when deployed, so
+// Cloud Run can scale to zero and stay on the free tier.
 const jobs: {
   runActivation?: ReturnType<typeof createActivationJob>;
   runRestoreAll?: ReturnType<typeof createRestoreAllJob>;
   runSweep?: ReturnType<typeof createSweepJob>;
 } = {};
-const jobQueue = createInProcessJobQueue({
-  handlers: () => ({
-    'activate-calm-mode': (payload) =>
-      jobs.runActivation
-        ? jobs.runActivation(payload)
-        : Promise.reject(new Error('Job handlers are not ready')),
-    'restore-all': (payload) =>
-      jobs.runRestoreAll
-        ? jobs.runRestoreAll(payload)
-        : Promise.reject(new Error('Job handlers are not ready')),
-    sweep: (payload) =>
-      jobs.runSweep
-        ? jobs.runSweep(payload)
-        : Promise.reject(new Error('Job handlers are not ready')),
-  }),
-  logger,
-  now,
+const notReady = () => Promise.reject(new Error('Job handlers are not ready'));
+const jobHandlers = (): JobHandlers => ({
+  'activate-calm-mode': (payload) =>
+    jobs.runActivation ? jobs.runActivation(payload) : notReady(),
+  'restore-all': (payload) => (jobs.runRestoreAll ? jobs.runRestoreAll(payload) : notReady()),
+  sweep: (payload) => (jobs.runSweep ? jobs.runSweep(payload) : notReady()),
 });
+const jobQueue =
+  config.jobs.kind === 'cloud-tasks'
+    ? createCloudTasksJobQueue({
+        settings: {
+          queue: config.jobs.queue,
+          apiUrl: config.publicApiUrl,
+          invokerEmail: config.jobs.invokerEmail,
+        },
+        accessToken: metadataServerAccessToken(),
+      })
+    : createInProcessJobQueue({ handlers: jobHandlers, logger, now });
 jobs.runActivation = createActivationJob({
   calmMode,
   calmSessions,
@@ -117,16 +121,19 @@ jobs.runActivation = createActivationJob({
 jobs.runRestoreAll = createRestoreAllJob({ restore, jobQueue, now, logger });
 jobs.runSweep = createSweepJob({ calmMode, calmSessions, jobQueue, now, logger });
 
-// The Sweep's schedule. Locally a timer; deployed, Cloud Scheduler (ADR-0015, M0b).
+// The Sweep's schedule: Cloud Scheduler calls /internal/sweep when deployed; a timer locally.
 const queueSweeps = createSweepSchedule({ calmSessions, jobQueue });
-const sweepTimer = setInterval(() => {
-  queueSweeps().catch((error: unknown) => {
-    logger.error(
-      { errorName: error instanceof Error ? error.name : typeof error },
-      'Could not queue the Sweep',
-    );
-  });
-}, config.sweepIntervalMs);
+const sweepTimer =
+  config.jobs.kind === 'in-process'
+    ? setInterval(() => {
+        queueSweeps().catch((error: unknown) => {
+          logger.error(
+            { errorName: error instanceof Error ? error.name : typeof error },
+            'Could not queue the Sweep',
+          );
+        });
+      }, config.sweepIntervalMs)
+    : undefined;
 
 const guardianships = createGuardianshipsRepository(db);
 const guardianNotices = createGuardianNotices({
@@ -138,6 +145,19 @@ const guardianNotices = createGuardianNotices({
     : createLoggingEmailSender(logger),
   publicApiUrl: config.publicApiUrl,
 });
+
+const internal =
+  config.jobs.kind === 'cloud-tasks'
+    ? {
+        verifyGoogleCaller: createGoogleCallerVerifier({
+          keys: createRemoteJWKSet(new URL(GOOGLE_SIGNING_KEYS_URL)),
+          audience: config.publicApiUrl.origin,
+          invokerEmail: config.jobs.invokerEmail,
+        }),
+        handlers: jobHandlers,
+        queueSweeps,
+      }
+    : undefined;
 
 const app = createApp({
   logger,
@@ -170,6 +190,7 @@ const app = createApp({
       ),
   },
   review: { restore, archive, jobQueue },
+  ...(internal ? { internal } : {}),
   guardians: {
     guardians: createGuardians({
       guardianships,
@@ -195,7 +216,7 @@ const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
 for (const signal of SHUTDOWN_SIGNALS) {
   process.once(signal, () => {
     logger.info({ signal }, 'Shutting down');
-    clearInterval(sweepTimer);
+    if (sweepTimer) clearInterval(sweepTimer);
     server.close((serverError) => {
       if (serverError) logger.error({ err: serverError }, 'Error while closing the server');
       db.destroy().then(
