@@ -1,6 +1,8 @@
 # Calm Guardian: Build Plan
 
-> The product, the roadmap to the App Store and Google Play, and the lessons from v1.
+> The product, the roadmap, and the lessons from v1. **Since 2026-11-12 the goal is a cloud demo on
+> Expo Go, not the app stores (ADR-0017):** store-only items below are parked. Deploying:
+> `docs/release/demo-deployment.md`.
 > Dean owns the scope and ticks the boxes. Decisions live in `docs/decisions/`; store
 > requirements live in `docs/release/store-readiness.md`.
 
@@ -62,6 +64,7 @@ a social media privacy tool (Social Networking / Utilities), not a medical app.
 | [0014](decisions/0014-archive-media-in-postgres.md) | Archived files in Postgres, encrypted, stored and deleted with their post | Accepted |
 | [0015](decisions/0015-job-runner.md) | Background jobs: Cloud Tasks + Scheduler behind a `JobQueue` port; runs until done, newest posts first | Accepted |
 | [0016](decisions/0016-restore-exactly-as-it-was.md) | Restore re-creates the exact post at its original address | Accepted |
+| [0017](decisions/0017-cloud-demo-not-app-stores.md) | A cloud demo on Expo Go; store releases parked | Accepted |
 
 **Deferred until the milestone that needs them:** job execution (Cloud Tasks + Scheduler vs
 pg-boss), DB access library (Kysely vs Drizzle vs supabase-js), email provider (Resend),
