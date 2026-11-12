@@ -7,8 +7,14 @@ Supabase dashboard, never into a file in the repo.
 **You'll need:** a Google account with billing, a free Supabase account, a free Expo account, and a
 Gmail address with 2-step verification turned on.
 
-**Expected cost:** Cloud Run with one instance always on, roughly £35–45 a month. Supabase, Expo,
-Artifact Registry and Secret Manager stay in their free tiers at this size. Step 1 sets a budget alert.
+**Expected cost: £0.** Everything sits in free tiers: Cloud Run scales to zero; Cloud Tasks (1 million
+operations a month), Cloud Scheduler (3 jobs; we use 1), Artifact Registry (0.5 GB) and Secret Manager
+(6 secret versions; we use 4) are free at this size, and so are Supabase, Expo and Gmail. GCP still
+needs a billing account linked, so step 1 sets a **£1** budget alert.
+
+**Free-tier limits to know:** a free Supabase project pauses after a week without use (resume it in the
+dashboard; the Sweep running every 5 minutes usually keeps it awake). The first request after a quiet
+spell takes a few seconds while Cloud Run starts up.
 
 ---
 
@@ -23,8 +29,8 @@ gcloud config set project calm-guardian-demo
 
 Then, in the Google Cloud console:
 1. **Billing** → link a billing account to the project.
-2. **Billing → Budgets & alerts** → create a budget, e.g. £50 a month, with email alerts at 50%,
-   90% and 100%.
+2. **Billing → Budgets & alerts** → create a budget of **£1** a month, with an email alert at 100%.
+   Nothing should ever reach it.
 
 ## 2. Gmail app password (for all emails)
 
@@ -69,7 +75,7 @@ cd infra
 cp terraform.tfvars.example terraform.tfvars    # then fill in project_id, supabase_url, email_from
 terraform init
 terraform plan                                   # read it
-terraform apply                                  # creates the registry, secrets and service account
+terraform apply                                  # registry, secrets, job queue, service accounts
 ```
 
 ## 5. Secrets
@@ -116,6 +122,7 @@ Check it:
 API=$(terraform -chdir=infra output -raw api_url)
 curl -s "$API/ready"                          # {"status":"ok"}: it can reach the database
 curl -s "$API/oauth/client-metadata.json"     # Bluesky's view of us
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "$API/internal/sweep"   # 401: only Google may call it
 ```
 
 ## 8. The app, in Expo Go
@@ -162,8 +169,7 @@ and scan the QR code it shows with Expo Go.
 Build and push a new tag (step 6, e.g. `api:v2`), set `image` in `terraform.tfvars`, and
 `terraform apply`. New database migrations: `supabase db push`.
 
-## Pausing to save money
+## Taking it down
 
-`terraform destroy` removes Cloud Run, the registry and the secrets (keep a copy of the encryption key
-first, or the stored data can't be read). Or set `min_instance_count = 0` in `infra/main.tf` to stop
-paying while idle; background work then only runs while someone's using the app.
+`terraform destroy` removes Cloud Run, the queue, the schedule, the registry and the secrets. Keep a
+copy of the encryption key first, or the stored data can't be read again.

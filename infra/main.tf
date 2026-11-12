@@ -1,5 +1,6 @@
-# The demo deployment (ADR-0017): the API on Cloud Run, its secrets in Secret Manager, its image in
-# Artifact Registry. Supabase (database and sign-in) is hosted separately.
+# The demo deployment (ADR-0017), all on free tiers: the API on Cloud Run (scales to zero), jobs on
+# Cloud Tasks and Scheduler, secrets in Secret Manager, the image in
+# Artifact Registry. Supabase (database and sign-in) is hosted separately, on its free plan.
 
 data "google_project" "this" {}
 
@@ -17,7 +18,8 @@ resource "google_project_service" "apis" {
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
     "secretmanager.googleapis.com",
-    "cloudbuild.googleapis.com",
+    "cloudtasks.googleapis.com",
+    "cloudscheduler.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false
@@ -44,6 +46,34 @@ resource "google_secret_manager_secret" "api" {
   depends_on = [google_project_service.apis]
 }
 
+# Background work goes through Cloud Tasks and Cloud Scheduler (ADR-0015, ADR-0017), so Cloud Run can
+# scale to zero: everything here stays within GCP's free tier for a demo.
+resource "google_cloud_tasks_queue" "jobs" {
+  name     = "calm-guardian-jobs"
+  location = var.region
+
+  rate_limits {
+    # Well under Bluesky's limits, and plenty for a demo.
+    max_dispatches_per_second = 5
+    max_concurrent_dispatches = 5
+  }
+
+  retry_config {
+    max_attempts  = 10
+    min_backoff   = "5s"
+    max_backoff   = "300s"
+    max_doublings = 6
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+# Cloud Tasks and Cloud Scheduler sign their requests as this account; /internal/* accepts no other.
+resource "google_service_account" "tasks_invoker" {
+  account_id   = "calm-guardian-tasks"
+  display_name = "Calm Guardian background jobs"
+}
+
 # The API runs as its own account, which can read its secrets and nothing else.
 resource "google_service_account" "api" {
   account_id   = "calm-guardian-api"
@@ -55,6 +85,20 @@ resource "google_secret_manager_secret_iam_member" "api_reads_secrets" {
   secret_id = each.value.id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.api.email}"
+}
+
+# The API may queue jobs, signed as the invoker account.
+resource "google_cloud_tasks_queue_iam_member" "api_enqueues" {
+  name     = google_cloud_tasks_queue.jobs.name
+  location = var.region
+  role     = "roles/cloudtasks.enqueuer"
+  member   = "serviceAccount:${google_service_account.api.email}"
+}
+
+resource "google_service_account_iam_member" "api_signs_as_invoker" {
+  service_account_id = google_service_account.tasks_invoker.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.api.email}"
 }
 
 resource "google_cloud_run_v2_service" "api" {
@@ -69,18 +113,20 @@ resource "google_cloud_run_v2_service" "api" {
   template {
     service_account = google_service_account.api.email
 
-    # Background work (hiding posts, the Sweep) runs inside the API for now (ADR-0015, ADR-0017), so
-    # exactly one instance stays up with its CPU always on. Cloud Tasks would let it scale to zero.
+    # Scales to zero between requests: the free tier (ADR-0017). Background work arrives as requests.
     scaling {
-      min_instance_count = 1
-      max_instance_count = 1
+      min_instance_count = 0
+      max_instance_count = 2
     }
+
+    # A job slice works for up to 8 minutes (ADR-0015); this leaves room to finish it.
+    timeout = "900s"
 
     containers {
       image = var.image
 
       resources {
-        cpu_idle = false
+        cpu_idle = true
         limits = {
           cpu    = "1"
           memory = "512Mi"
@@ -106,6 +152,14 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "EMAIL_FROM"
         value = var.email_from
+      }
+      env {
+        name  = "CLOUD_TASKS_QUEUE"
+        value = google_cloud_tasks_queue.jobs.id
+      }
+      env {
+        name  = "TASKS_INVOKER_EMAIL"
+        value = google_service_account.tasks_invoker.email
       }
 
       dynamic "env" {
@@ -144,4 +198,25 @@ resource "google_cloud_run_v2_service_iam_member" "public" {
   location = var.region
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# The Sweep: every few minutes, hide posts made while Calm Mode is on (M4). One of the three free
+# Cloud Scheduler jobs.
+resource "google_cloud_scheduler_job" "sweep" {
+  count     = var.image == "" ? 0 : 1
+  name      = "calm-guardian-sweep"
+  region    = var.region
+  schedule  = "*/5 * * * *"
+  time_zone = "Etc/UTC"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${local.public_api_url}/internal/sweep"
+    oidc_token {
+      service_account_email = google_service_account.tasks_invoker.email
+      audience              = local.public_api_url
+    }
+  }
+
+  depends_on = [google_project_service.apis]
 }

@@ -22,10 +22,11 @@ and try it with their own (test) Bluesky accounts. He doesn't have a paid Apple 
   Go). The API accepts only app links from an allow-list, never web addresses.
 - **Email** (sign-in codes from Supabase, Guardian emails from the API) goes through **Gmail's SMTP
   with an app password**. Free, and plenty for a demo.
-- **Background work stays inside the API** for now: one Cloud Run instance, always on, so hiding,
-  the Sweep and Guardian emails keep running (roughly £35–45 a month). Moving to Cloud Tasks
-  (ADR-0015) would let it scale to zero and cost almost nothing; that's the next step if the cost
-  matters.
+- **Everything stays on free tiers** (Dean, 2026-11-12). Background work (hiding, Restore all,
+  Guardian emails) goes through **Cloud Tasks**, and **Cloud Scheduler** starts the Sweep every 5
+  minutes, both as signed requests to `/internal/*` (ADR-0015). So Cloud Run **scales to zero** and
+  is only used while a request runs. Locally, jobs still run in-process with a timer. A billing
+  account is still required by GCP; a £1 budget alert catches anything that slips.
 
 ## What we park
 App Store and Google Play work: store listings, privacy labels, the data safety form, Apple and
