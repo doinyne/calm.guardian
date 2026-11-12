@@ -14,6 +14,7 @@ import { calmRoutes, type CalmDependencies } from './routes/calm';
 import { connectionsRoutes, type ConnectionsDependencies } from './routes/connections';
 import { guardiansRoutes, type GuardiansDependencies } from './routes/guardians';
 import { healthRoutes, type ReadinessCheck } from './routes/health';
+import { internalRoutes, type InternalDependencies } from './routes/internal';
 import { reviewRoutes, type ReviewDependencies } from './routes/review';
 
 /** Clients only send small commands; post content is backed up server-side, never uploaded. */
@@ -28,6 +29,8 @@ export type AppDependencies = {
   calm: CalmDependencies;
   review: ReviewDependencies;
   guardians: GuardiansDependencies;
+  /** Only when deployed with Cloud Tasks (ADR-0017). Locally, jobs run in-process. */
+  internal?: InternalDependencies;
 };
 
 /**
@@ -43,6 +46,7 @@ export function createApp({
   calm,
   review,
   guardians,
+  internal,
 }: AppDependencies) {
   const signedIn = requireAccount({ verifyAccessToken, logger });
 
@@ -66,6 +70,8 @@ export function createApp({
     .route('/', calmRoutes({ requireAccount: signedIn, ...calm }))
     .route('/', reviewRoutes({ requireAccount: signedIn, ...review }))
     .route('/', guardiansRoutes({ requireAccount: signedIn, ...guardians }));
+
+  if (internal) app.route('/', internalRoutes({ ...internal, logger }));
 
   app.onError(createErrorHandler(logger));
   app.notFound(handleNotFound);
