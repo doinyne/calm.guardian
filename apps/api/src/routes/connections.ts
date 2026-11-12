@@ -1,3 +1,4 @@
+import { isAppReturnUrl } from '@calm-guardian/shared';
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
@@ -9,6 +10,7 @@ import {
 } from '../connections/connected-accounts-repository';
 import { ConnectionHasHiddenPostsError, type Disconnect } from '../connections/connection-removal';
 import type { PendingConnections } from '../connections/pending-connections';
+import { BLUESKY_CLIENT_METADATA_PATH } from '../config';
 import { errorResponse } from '../http/errors';
 import type { RequireAccount } from '../http/require-account';
 import { validate } from '../http/validation';
@@ -21,10 +23,17 @@ export type ConnectionsDependencies = {
   disconnect: Disconnect;
   /** Where Bluesky's callback sends the user back into the app. */
   appReturnUrl: URL;
+  /** A deployed API's Bluesky client details, published for Bluesky to read (ADR-0017). */
+  blueskyClientMetadata?: Readonly<Record<string, unknown>>;
 };
 
 /** What the callback tells the app when there's no sign-in to claim. */
 type CallbackStatus = 'cancelled' | 'failed';
+
+/** The app says where to come back to: Expo Go's link or its own (ADR-0017). */
+const StartConnectionSchema = z.object({
+  returnUrl: z.string().max(2000).refine(isAppReturnUrl, "must be the app's own link").optional(),
+});
 
 const CompleteConnectionSchema = z.object({ code: z.string().min(1).max(200) });
 const ConnectionParamsSchema = z.object({ id: ConnectedAccountIdSchema });
@@ -45,24 +54,43 @@ export function connectionsRoutes({
   pendingConnections,
   disconnect,
   appReturnUrl,
+  blueskyClientMetadata,
 }: ConnectionsDependencies & { requireAccount: RequireAccount; logger: Logger }) {
-  const backToApp = (c: Context, params: Record<string, string>) => {
-    const url = new URL(appReturnUrl);
+  const backToApp = (c: Context, params: Record<string, string>, returnUrl?: string) => {
+    const url = new URL(returnUrl ?? appReturnUrl);
     for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
     return c.redirect(url.href, 302);
   };
 
   return (
     new Hono()
+      // Public: Bluesky fetches this to learn who we are. Only a deployed API has one.
+      .get(BLUESKY_CLIENT_METADATA_PATH, (c) =>
+        blueskyClientMetadata
+          ? c.json(blueskyClientMetadata)
+          : errorResponse(c, 404, {
+              code: 'not_found',
+              message: 'There is nothing at this address.',
+            }),
+      )
       .get('/connections', requireAccount, async (c) => {
         const accounts = await connectedAccounts.listForAccount(c.var.accountId);
         return c.json({ connectedAccounts: accounts.map(toConnectionResponse) });
       })
 
-      .post('/connections/bluesky', requireAccount, async (c) => {
-        const authorizationUrl = await bluesky.authorizationUrl(c.var.accountId);
-        return c.json({ authorizationUrl: authorizationUrl.href });
-      })
+      .post(
+        '/connections/bluesky',
+        requireAccount,
+        validate('json', StartConnectionSchema),
+        async (c) => {
+          const { returnUrl } = c.req.valid('json');
+          const authorizationUrl = await bluesky.authorizationUrl({
+            startedBy: c.var.accountId,
+            ...(returnUrl ? { returnUrl } : {}),
+          });
+          return c.json({ authorizationUrl: authorizationUrl.href });
+        },
+      )
 
       // Public: Bluesky's redirect lands here. It connects nothing; it only holds the sign-in for the
       // app to claim. The request logger never records the query, which carries Bluesky's code.
@@ -70,14 +98,16 @@ export function connectionsRoutes({
         try {
           const signIn = await bluesky.completeSignIn(new URL(c.req.url).searchParams);
           const code = await pendingConnections.hold(signIn);
-          return backToApp(c, { code });
+          return backToApp(c, { code }, signIn.returnUrl);
         } catch (error) {
           const status: CallbackStatus =
             error instanceof BlueskySignInCancelledError ? 'cancelled' : 'failed';
           if (status === 'failed') {
             logger.warn({ err: error, requestId: c.get('requestId') }, 'Bluesky sign-in failed');
           }
-          return backToApp(c, { status });
+          const returnUrl =
+            error instanceof BlueskySignInCancelledError ? error.returnUrl : undefined;
+          return backToApp(c, { status }, returnUrl);
         }
       })
 

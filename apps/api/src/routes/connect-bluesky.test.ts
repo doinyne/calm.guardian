@@ -354,4 +354,79 @@ describe('connecting Bluesky', () => {
       expect(response.status).toBe(400);
     });
   });
+
+  describe('coming back to the app it started in (ADR-0017)', () => {
+    const EXPO_GO = 'exp://192.168.1.4:8081/--/connect/bluesky';
+
+    async function start(setup: ReturnType<typeof setUp>, accountId: AccountId, body: unknown) {
+      return setup.app.request('/connections/bluesky', {
+        method: 'POST',
+        headers: { ...(await setup.signedInAs(accountId)), 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    }
+
+    it("sends the user back to the link the app gave, such as Expo Go's", async () => {
+      const setup = setUp();
+      const me = newAccountId();
+      await start(setup, me, { returnUrl: EXPO_GO });
+      setup.bluesky.willCompleteSignIn('bluesky-code', {
+        did: newDid(),
+        handle: 'me.bsky.social',
+        startedBy: me,
+      });
+
+      const backInApp = await setup.blueskyRedirectsBack('code=bluesky-code&state=opaque');
+
+      expect(`${backInApp.origin}${backInApp.pathname}`).toBe(
+        new URL(EXPO_GO).origin + new URL(EXPO_GO).pathname,
+      );
+      expect(backInApp.searchParams.get('code')).toBeTruthy();
+    });
+
+    it('goes back to that link when the user cancels too', async () => {
+      const setup = setUp();
+      await start(setup, newAccountId(), { returnUrl: EXPO_GO });
+
+      const backInApp = await setup.blueskyRedirectsBack('error=access_denied&state=opaque');
+
+      expect(backInApp.protocol).toBe('exp:');
+      expect(backInApp.searchParams.get('status')).toBe('cancelled');
+    });
+
+    it('refuses a web address, so the code can only ever reach the app', async () => {
+      const setup = setUp();
+
+      const response = await start(setup, newAccountId(), { returnUrl: 'https://evil.example/' });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('uses the configured link when the app gives none', async () => {
+      const setup = setUp();
+      await start(setup, newAccountId(), {});
+
+      const backInApp = await setup.blueskyRedirectsBack('error=access_denied&state=opaque');
+
+      expect(backInApp.protocol).toBe(TEST_APP_RETURN_URL.protocol);
+    });
+  });
+
+  describe("the deployed API's Bluesky client details", () => {
+    it('are published for Bluesky to read, without signing in', async () => {
+      const metadata = { client_id: 'https://api.example/oauth/client-metadata.json' };
+      const { app } = buildTestApp({ blueskyClientMetadata: metadata });
+
+      const response = await app.request('/oauth/client-metadata.json');
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(metadata);
+    });
+
+    it("aren't there when running locally with the development client", async () => {
+      const { app } = buildTestApp();
+
+      expect((await app.request('/oauth/client-metadata.json')).status).toBe(404);
+    });
+  });
 });

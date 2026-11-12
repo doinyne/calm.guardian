@@ -93,7 +93,10 @@ describe('loadConfig', () => {
   it('reads where Bluesky sends people back to, and where the API returns them to the app', () => {
     const { bluesky } = loadConfig(REQUIRED_ENV);
 
-    expect(bluesky.redirectUrl.href).toBe('http://127.0.0.1:3000/connections/bluesky/callback');
+    expect(bluesky.client).toEqual({
+      kind: 'development',
+      redirectUrl: new URL('http://127.0.0.1:3000/connections/bluesky/callback'),
+    });
     expect(bluesky.appReturnUrl.href).toBe('calmguardian-dev://connect/bluesky');
   });
 
@@ -152,5 +155,48 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ ...REQUIRED_ENV, SWEEP_INTERVAL_SECONDS: '1' })).toThrow(
       /SWEEP_INTERVAL_SECONDS/,
     );
+  });
+
+  it('makes Bluesky a public client at the API itself once deployed (https)', () => {
+    const { bluesky } = loadConfig({
+      ...REQUIRED_ENV,
+      BLUESKY_REDIRECT_URL: undefined,
+      PUBLIC_API_URL: 'https://calm-guardian-api-abc123-nw.a.run.app',
+    });
+
+    expect(bluesky.client).toEqual({
+      kind: 'public',
+      clientId: new URL('https://calm-guardian-api-abc123-nw.a.run.app/oauth/client-metadata.json'),
+      redirectUrl: new URL(
+        'https://calm-guardian-api-abc123-nw.a.run.app/connections/bluesky/callback',
+      ),
+    });
+  });
+
+  it('needs the development redirect when running locally', () => {
+    expect(() => loadConfig({ ...REQUIRED_ENV, BLUESKY_REDIRECT_URL: undefined })).toThrow(
+      /BLUESKY_REDIRECT_URL/,
+    );
+  });
+
+  it('runs background work in-process unless Cloud Tasks is configured', () => {
+    expect(loadConfig(REQUIRED_ENV).jobs).toEqual({ kind: 'in-process' });
+    expect(
+      loadConfig({
+        ...REQUIRED_ENV,
+        CLOUD_TASKS_QUEUE: 'projects/demo/locations/europe-west2/queues/calm-guardian-jobs',
+        TASKS_INVOKER_EMAIL: 'calm-guardian-tasks@demo.iam.gserviceaccount.com',
+      }).jobs,
+    ).toEqual({
+      kind: 'cloud-tasks',
+      queue: 'projects/demo/locations/europe-west2/queues/calm-guardian-jobs',
+      invokerEmail: 'calm-guardian-tasks@demo.iam.gserviceaccount.com',
+    });
+  });
+
+  it('refuses half a Cloud Tasks setup', () => {
+    expect(() =>
+      loadConfig({ ...REQUIRED_ENV, CLOUD_TASKS_QUEUE: 'projects/a/locations/b/queues/c' }),
+    ).toThrow(/set both, or neither/);
   });
 });

@@ -34,7 +34,8 @@ const REACT_NATIVE_REQUIRED_REASON_APIS = [
 ];
 
 export default function appConfig({ config }: ConfigContext): ExpoConfig {
-  const suffix = VARIANT_SUFFIXES[readVariant(process.env.EXPO_PUBLIC_APP_VARIANT)];
+  const variant = readVariant(process.env.EXPO_PUBLIC_APP_VARIANT);
+  const suffix = VARIANT_SUFFIXES[variant];
   const bundleId = suffix.id ? `${PRODUCTION_BUNDLE_ID}.${suffix.id}` : PRODUCTION_BUNDLE_ID;
 
   return {
@@ -47,7 +48,16 @@ export default function appConfig({ config }: ConfigContext): ExpoConfig {
     icon: './assets/icon.png',
     // Dark only for launch (ADR-0007): keyboards, alerts and system sheets match the app.
     userInterfaceStyle: 'dark',
-    runtimeVersion: { policy: 'fingerprint' },
+    // The cloud demo runs in Expo Go (ADR-0017), which only loads updates marked with the SDK
+    // version. Our own builds keep the fingerprint, which tracks native changes exactly.
+    runtimeVersion: variant === 'preview' ? { policy: 'sdkVersion' } : { policy: 'fingerprint' },
+    // Filled in by `eas init`: where EAS Update publishes the app for Expo Go to open.
+    ...(process.env.EAS_PROJECT_ID
+      ? {
+          extra: { ...config.extra, eas: { projectId: process.env.EAS_PROJECT_ID } },
+          updates: { url: `https://u.expo.dev/${process.env.EAS_PROJECT_ID}` },
+        }
+      : {}),
 
     ios: {
       bundleIdentifier: bundleId,

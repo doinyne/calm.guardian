@@ -64,6 +64,7 @@ describe('connect an account', () => {
   it('offers Bluesky', async () => {
     await renderScreen();
 
+    expect(screen.getByText(/Please connect a test Bluesky account/)).toBeOnTheScreen();
     expect(screen.getByRole('heading', { name: 'Connect an account' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Connect Bluesky' })).toBeOnTheScreen();
   });

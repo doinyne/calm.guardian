@@ -22,7 +22,11 @@ export class FakeBlueskyOAuth implements BlueskyOAuth {
     this.revokesFail = true;
   }
 
-  authorizationUrl(startedBy: AccountId) {
+  /** The return link from the last sign-in started, which Bluesky would hand back in the state. */
+  private lastReturnUrl: string | undefined;
+
+  authorizationUrl({ startedBy, returnUrl }: { startedBy: AccountId; returnUrl?: string }) {
+    this.lastReturnUrl = returnUrl;
     return Promise.resolve(
       new URL(`https://bsky.social/oauth/authorize?request_uri=fake-${startedBy}`),
     );
@@ -30,11 +34,14 @@ export class FakeBlueskyOAuth implements BlueskyOAuth {
 
   completeSignIn(callbackParams: URLSearchParams) {
     if (callbackParams.get('error') === 'access_denied') {
-      return Promise.reject(new BlueskySignInCancelledError());
+      return Promise.reject(new BlueskySignInCancelledError(this.lastReturnUrl));
     }
     const signIn = this.signIns.get(callbackParams.get('code') ?? '');
     return signIn
-      ? Promise.resolve(signIn)
+      ? Promise.resolve({
+          ...signIn,
+          ...(this.lastReturnUrl ? { returnUrl: this.lastReturnUrl } : {}),
+        })
       : Promise.reject(new Error('Bluesky rejected the code'));
   }
 

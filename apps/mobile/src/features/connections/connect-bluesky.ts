@@ -30,7 +30,8 @@ export async function connectBluesky({
   openAuthSession = WebBrowser.openAuthSessionAsync,
   returnUrl = Linking.createURL(CONNECT_RETURN_PATH),
 }: { openAuthSession?: OpenAuthSession; returnUrl?: string } = {}): Promise<ConnectOutcome> {
-  const start = await apiClient.connections.bluesky.$post();
+  // In Expo Go this is an exp:// link, in our own builds calmguardian://; the API checks it (ADR-0017).
+  const start = await apiClient.connections.bluesky.$post({ json: { returnUrl } });
   if (!start.ok) return 'failed';
   const { authorizationUrl } = await start.json();
 

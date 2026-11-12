@@ -10,14 +10,21 @@ export interface EmailSender {
   send(email: Email): Promise<void>;
 }
 
-const FROM = 'Calm Guardian <hello@calmguardian.invalid>';
-
-/** SMTP, e.g. local Supabase's Mailpit (smtp://127.0.0.1:54325), which never delivers anywhere real. */
-export function createSmtpEmailSender(smtpUrl: string): EmailSender {
+/**
+ * SMTP: local Supabase's Mailpit (smtp://127.0.0.1:54325, never delivers anywhere real), or Gmail
+ * with an app password for the demo (smtps://you%40gmail.com:app-password@smtp.gmail.com:465).
+ */
+export function createSmtpEmailSender({
+  smtpUrl,
+  from,
+}: {
+  smtpUrl: string;
+  from: string;
+}): EmailSender {
   const transport = createTransport(smtpUrl);
   return {
     async send(email) {
-      await transport.sendMail({ from: FROM, ...email });
+      await transport.sendMail({ from, ...email });
     },
   };
 }

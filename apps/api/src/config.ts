@@ -15,12 +15,24 @@ export type SupabaseConfig = {
   jwksUrl: URL;
 };
 
+/**
+ * Which kind of Bluesky OAuth client the API is (ADR-0003, ADR-0017):
+ * - `development`: Bluesky's localhost client, for running everything on your own machine.
+ * - `public`: deployed. The API publishes its own client details at `clientId`, an https address on
+ *   the API itself, so no separate domain is needed.
+ */
+export type BlueskyClient =
+  { kind: 'development'; redirectUrl: URL } | { kind: 'public'; clientId: URL; redirectUrl: URL };
+
 export type BlueskyConfig = {
-  /** Where Bluesky sends people after they approve us: our callback route. */
-  redirectUrl: URL;
-  /** Where our callback sends people next: back into the app. */
+  client: BlueskyClient;
+  /** Where our callback sends people when the app didn't say: back into the app. */
   appReturnUrl: URL;
 };
+
+/** Where the deployed API publishes its Bluesky client details, and where Bluesky sends people back. */
+export const BLUESKY_CLIENT_METADATA_PATH = '/oauth/client-metadata.json';
+export const BLUESKY_CALLBACK_PATH = '/connections/bluesky/callback';
 
 export type Config = {
   port: number;
@@ -37,7 +49,19 @@ export type Config = {
   smtpUrl: string | null;
   /** The API's public address, for links in emails. */
   publicApiUrl: URL;
+  /** Who emails come from. With Gmail's SMTP it must be that Gmail address. */
+  emailFrom: string;
+  jobs: JobsConfig;
 };
+
+/**
+ * Where background work runs (ADR-0015, ADR-0017):
+ * - `in-process`: inside the API, with a timer for the Sweep. Local development.
+ * - `cloud-tasks`: Cloud Tasks delivers each job to `/internal/jobs/*` and Cloud Scheduler starts the
+ *   Sweep, so a deployed API can scale to zero and stay on the free tier.
+ */
+export type JobsConfig =
+  { kind: 'in-process' } | { kind: 'cloud-tasks'; queue: string; invokerEmail: string };
 
 /** Every 5 minutes (ADR-0015). Shorten it locally to watch the Sweep work. */
 const DEFAULT_SWEEP_INTERVAL_SECONDS = 300;
@@ -104,12 +128,14 @@ const EnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   TOKEN_ENCRYPTION_KEYS: EncryptionKeysSchema,
+  // Only for local development: a deployed API (https PUBLIC_API_URL) derives its own.
   BLUESKY_REDIRECT_URL: z
     .url()
     .refine(
       isLoopbackRedirect,
       'must be http://127.0.0.1:<port>/… while we use the development client',
-    ),
+    )
+    .optional(),
   APP_CONNECT_RETURN_URL: z
     .url()
     .refine(
@@ -122,6 +148,16 @@ const EnvSchema = z.object({
     .min(MIN_SWEEP_INTERVAL_SECONDS)
     .default(DEFAULT_SWEEP_INTERVAL_SECONDS),
   SMTP_URL: z.url({ protocol: /^smtps?$/ }).optional(),
+  EMAIL_FROM: z.string().min(3).default('Calm Guardian <hello@calmguardian.invalid>'),
+  // Both set: background work through Cloud Tasks. Neither: in-process (local).
+  CLOUD_TASKS_QUEUE: z
+    .string()
+    .regex(
+      /^projects\/[^/]+\/locations\/[^/]+\/queues\/[^/]+$/,
+      'must be projects/<p>/locations/<l>/queues/<q>',
+    )
+    .optional(),
+  TASKS_INVOKER_EMAIL: z.email().optional(),
   PUBLIC_API_URL: z
     .url()
     .refine(isSecureOrLocal, 'must use https (http is allowed only for a local API)')
@@ -158,6 +194,9 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     SWEEP_INTERVAL_SECONDS,
     SMTP_URL,
     PUBLIC_API_URL,
+    EMAIL_FROM,
+    CLOUD_TASKS_QUEUE,
+    TASKS_INVOKER_EMAIL,
   } = result.data;
   return {
     port: PORT,
@@ -166,13 +205,41 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     databaseUrl: DATABASE_URL,
     tokenEncryptionKeys: TOKEN_ENCRYPTION_KEYS,
     bluesky: {
-      redirectUrl: new URL(BLUESKY_REDIRECT_URL),
+      client: blueskyClient(new URL(PUBLIC_API_URL), BLUESKY_REDIRECT_URL),
       appReturnUrl: new URL(APP_CONNECT_RETURN_URL),
     },
     sweepIntervalMs: SWEEP_INTERVAL_SECONDS * 1000,
     smtpUrl: SMTP_URL ?? null,
     publicApiUrl: new URL(PUBLIC_API_URL),
+    emailFrom: EMAIL_FROM,
+    jobs: jobsConfig(CLOUD_TASKS_QUEUE, TASKS_INVOKER_EMAIL),
   };
+}
+
+function jobsConfig(queue: string | undefined, invokerEmail: string | undefined): JobsConfig {
+  if (queue && invokerEmail) return { kind: 'cloud-tasks', queue, invokerEmail };
+  if (queue || invokerEmail) {
+    throw new ConfigError(
+      'Invalid environment configuration:\n  CLOUD_TASKS_QUEUE and TASKS_INVOKER_EMAIL: set both, or neither',
+    );
+  }
+  return { kind: 'in-process' };
+}
+
+function blueskyClient(publicApiUrl: URL, developmentRedirect: string | undefined): BlueskyClient {
+  if (publicApiUrl.protocol === 'https:') {
+    return {
+      kind: 'public',
+      clientId: new URL(BLUESKY_CLIENT_METADATA_PATH, publicApiUrl),
+      redirectUrl: new URL(BLUESKY_CALLBACK_PATH, publicApiUrl),
+    };
+  }
+  if (!developmentRedirect) {
+    throw new ConfigError(
+      'Invalid environment configuration:\n  BLUESKY_REDIRECT_URL: required when PUBLIC_API_URL is not https (local development)',
+    );
+  }
+  return { kind: 'development', redirectUrl: new URL(developmentRedirect) };
 }
 
 function supabaseConfig(rawUrl: string, secretKey: string): SupabaseConfig {
