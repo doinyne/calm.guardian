@@ -21,6 +21,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 
+import { NOT_MEDICAL } from '@/features/support/support-screen';
+
 import { deleteAccountOnServer } from './delete-account';
 
 export function SettingsScreen() {
@@ -55,6 +57,18 @@ export function SettingsScreen() {
             <Text>People you look after</Text>
           </Button>
         </Link>
+      </Section>
+
+      <Section title="Support">
+        <Link href="/support" asChild>
+          <Button variant="outline" size="lg">
+            <Text>Talk to someone now</Text>
+          </Button>
+        </Link>
+      </Section>
+
+      <Section title="About">
+        <Text className="text-muted-foreground">{NOT_MEDICAL}</Text>
       </Section>
 
       <Section title="Account">

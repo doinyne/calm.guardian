@@ -1,7 +1,6 @@
-import { HELPLINE_DIRECTORY_URL } from '@calm-guardian/shared';
 import { Link } from 'expo-router';
 import type { ReactNode } from 'react';
-import { Linking, View } from 'react-native';
+import { View } from 'react-native';
 import Animated, { FadeInDown, ReduceMotion } from 'react-native-reanimated';
 import { withUniwind } from 'uniwind';
 
@@ -43,16 +42,16 @@ export function WelcomeScreen({ diagnostics }: { diagnostics?: ReactNode }) {
       </AnimatedView>
 
       <View className="gap-2 pb-4">
-        <Link href="/sign-in" asChild>
+        <Link href="/how-it-works" asChild>
           <Button size="lg" className="shadow-lg shadow-primary/40">
-            <Text>Continue with email</Text>
+            <Text>Get started</Text>
           </Button>
         </Link>
-        <Button variant="link" onPress={() => void Linking.openURL(HELPLINE_DIRECTORY_URL)}>
-          <Text className="text-muted-foreground underline">
-            Need to talk to someone now? Find a helpline
-          </Text>
-        </Button>
+        <Link href="/support" asChild>
+          <Button variant="link">
+            <Text className="text-muted-foreground underline">Need to talk to someone now?</Text>
+          </Button>
+        </Link>
         {diagnostics}
       </View>
     </Screen>

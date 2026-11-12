@@ -24,7 +24,7 @@ Status: ⬜ not started · 🟨 in progress · ✅ done
 | 6 | iOS privacy manifest | Apple | `ios.privacyManifests` in `app.config.ts`, kept current as SDKs are added. SDKs so far add no data collection; `@react-native-community/datetimepicker` (M3) is a local UI control | M0 | 🟨 |
 | 7 | Export compliance | Apple | `ios.config.usesNonExemptEncryption: false` (standard HTTPS only) | M0 | 🟨 |
 | 8 | App Privacy label / Data safety form | Both | See the data inventory below | M9 | ⬜ |
-| 9 | No medical claims; disclaimer | Apple 1.4.1, Google health policy | ADR-0008. "Not a medical device" in onboarding and Settings | M7 | ⬜ |
+| 9 | No medical claims; disclaimer | Apple 1.4.1, Google health policy | ADR-0008. "Isn't a medical device and doesn't give medical advice" in How it works, Support and Settings → About; crisis lines by region, plus findahelpline.com | M7 | 🟨 |
 | 10 | Health apps declaration | Google | Complete honestly in Play Console → App content | M9 | ⬜ |
 | 11 | Sensitive data from an individual developer | Apple 5.1.1(ix) | Data minimisation, clear privacy policy, detailed review notes; fallback is a Ltd + app transfer | M9 | ⬜ |
 | 12 | Target API level | Google | Keep the Expo SDK current (yearly bump) | Ongoing | 🟨 |
