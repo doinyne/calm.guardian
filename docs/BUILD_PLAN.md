@@ -165,8 +165,10 @@ self-reviewed PR.
 - [x] Onboarding (welcome → How it works → sign in); region-aware crisis resources (Support, reachable signed in or out, from Settings and the turn-on screen); "not a medical device" in How it works, Support and Settings → About
 - [ ] **Dean:** check every helpline number against the services' own sites before release (`packages/shared/src/support.ts`, `SUPPORT_LAST_CHECKED`)
 - [ ] Privacy policy and terms (legally reviewed), linked in the app and on the website
-- [ ] Accessibility pass (labels, contrast, font scaling, screen reader), dark mode QA
-- [ ] Crash reporting with PII scrubbing; error boundary; offline handling
+- [x] Accessibility groundwork: every theme text/surface pair tested at WCAG AA (4.5:1; outlines and focus 3:1); icon buttons labelled; radios have roles; no fixed heights; buttons ≥ 44pt
+- [ ] Accessibility on devices: VoiceOver/TalkBack walk-through and the largest text size, on a real phone
+- [x] Error boundary (calm screen, no error details, Try again, Support); offline notice on home
+- [ ] Crash reporting with PII scrubbing (needs the vendor account, M0b)
 - [ ] UK GDPR DPIA; check whether the ICO data protection fee applies
 
 ### M8: Beta
