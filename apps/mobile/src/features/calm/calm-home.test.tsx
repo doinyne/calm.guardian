@@ -174,6 +174,24 @@ describe('home: Calm Mode at a glance', () => {
   });
 });
 
+describe('home without a connection', () => {
+  it("says calmly that it's offline, and that Calm Mode keeps working", async () => {
+    jest.spyOn(global, 'fetch').mockRejectedValue(new TypeError('Network request failed'));
+    await renderWithQueries(
+      <CalmHome
+        onTurnOn={jest.fn()}
+        onConnect={jest.fn()}
+        onReview={jest.fn()}
+        onGuardians={jest.fn()}
+        onLookingAfter={jest.fn()}
+      />,
+    );
+
+    expect(await screen.findByText(/Calm Mode keeps working on our side/)).toBeOnTheScreen();
+    expect(screen.queryByText(/couldn't load your accounts/)).toBeNull();
+  });
+});
+
 describe('home and Guardians', () => {
   it('says which Guardian turned Calm Mode on', async () => {
     await renderHome(() => [

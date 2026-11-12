@@ -2,7 +2,7 @@ import '../global.css';
 
 import { PortalHost } from '@rn-primitives/portal';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { ThemeProvider } from 'expo-router/react-navigation';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -12,9 +12,13 @@ import { Uniwind } from 'uniwind';
 import { accountAuth } from '@/account/account-auth-client';
 import { AccountSessionProvider, useAccountSession } from '@/account/account-session';
 import { queryClient } from '@/api/client';
+import { CalmErrorScreen } from '@/components/calm-error-screen';
 import { NAVIGATION_THEME } from '@/lib/navigation-theme';
 
-export { ErrorBoundary } from 'expo-router';
+/** A calm screen instead of the default red one if anything below crashes. */
+export function ErrorBoundary({ retry }: ErrorBoundaryProps) {
+  return <CalmErrorScreen retry={retry} />;
+}
 
 // Keep the splash screen up until we know whether someone is signed in, so a signed-in user never
 // sees the welcome screen flash past.

@@ -1,5 +1,6 @@
 import { Alert, ScrollView, View } from 'react-native';
 
+import { isOffline } from '@/api/offline';
 import { CalmCore, type CoreState } from '@/components/calm-core';
 import { ErrorMessage } from '@/components/error-message';
 import { MonoLabel } from '@/components/mono-label';
@@ -136,7 +137,16 @@ export function CalmHome({
         </View>
 
         {status.isPending ? <Text className="text-muted-foreground">Loading…</Text> : null}
-        {status.isError ? (
+        {status.isError && isOffline(status.error) ? (
+          <View className="gap-1" role="alert">
+            <MonoLabel>Offline</MonoLabel>
+            <Text className="text-muted-foreground">
+              You&apos;re offline. Calm Mode keeps working on our side, and this will update when
+              you&apos;re back online.
+            </Text>
+          </View>
+        ) : null}
+        {status.isError && !isOffline(status.error) ? (
           <ErrorMessage>We couldn&apos;t load your accounts. Please try again.</ErrorMessage>
         ) : null}
         {status.isSuccess && accounts.length === 0 ? (
