@@ -42,7 +42,7 @@ const archive = createArchiveRepository({ db, secretBox });
 const bluesky = createAtprotoBlueskyOAuth({
   db,
   secretBox,
-  redirectUrl: config.bluesky.redirectUrl,
+  client: config.bluesky.client,
   onSessionEnded: (did) => {
     connectedAccounts
       .markNeedsReauth({ platform: 'bluesky', externalId: did })
@@ -154,6 +154,9 @@ const app = createApp({
     pendingConnections: createPendingConnections({ db, secretBox }),
     disconnect: connectionRemoval.disconnect,
     appReturnUrl: config.bluesky.appReturnUrl,
+    ...(config.bluesky.client.kind === 'public'
+      ? { blueskyClientMetadata: bluesky.clientMetadata }
+      : {}),
   },
   calm: {
     calmMode,

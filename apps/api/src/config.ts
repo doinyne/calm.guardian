@@ -15,12 +15,24 @@ export type SupabaseConfig = {
   jwksUrl: URL;
 };
 
+/**
+ * Which kind of Bluesky OAuth client the API is (ADR-0003, ADR-0017):
+ * - `development`: Bluesky's localhost client, for running everything on your own machine.
+ * - `public`: deployed. The API publishes its own client details at `clientId`, an https address on
+ *   the API itself, so no separate domain is needed.
+ */
+export type BlueskyClient =
+  { kind: 'development'; redirectUrl: URL } | { kind: 'public'; clientId: URL; redirectUrl: URL };
+
 export type BlueskyConfig = {
-  /** Where Bluesky sends people after they approve us: our callback route. */
-  redirectUrl: URL;
-  /** Where our callback sends people next: back into the app. */
+  client: BlueskyClient;
+  /** Where our callback sends people when the app didn't say: back into the app. */
   appReturnUrl: URL;
 };
+
+/** Where the deployed API publishes its Bluesky client details, and where Bluesky sends people back. */
+export const BLUESKY_CLIENT_METADATA_PATH = '/oauth/client-metadata.json';
+export const BLUESKY_CALLBACK_PATH = '/connections/bluesky/callback';
 
 export type Config = {
   port: number;
@@ -104,12 +116,14 @@ const EnvSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(1),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   TOKEN_ENCRYPTION_KEYS: EncryptionKeysSchema,
+  // Only for local development: a deployed API (https PUBLIC_API_URL) derives its own.
   BLUESKY_REDIRECT_URL: z
     .url()
     .refine(
       isLoopbackRedirect,
       'must be http://127.0.0.1:<port>/… while we use the development client',
-    ),
+    )
+    .optional(),
   APP_CONNECT_RETURN_URL: z
     .url()
     .refine(
@@ -166,13 +180,29 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     databaseUrl: DATABASE_URL,
     tokenEncryptionKeys: TOKEN_ENCRYPTION_KEYS,
     bluesky: {
-      redirectUrl: new URL(BLUESKY_REDIRECT_URL),
+      client: blueskyClient(new URL(PUBLIC_API_URL), BLUESKY_REDIRECT_URL),
       appReturnUrl: new URL(APP_CONNECT_RETURN_URL),
     },
     sweepIntervalMs: SWEEP_INTERVAL_SECONDS * 1000,
     smtpUrl: SMTP_URL ?? null,
     publicApiUrl: new URL(PUBLIC_API_URL),
   };
+}
+
+function blueskyClient(publicApiUrl: URL, developmentRedirect: string | undefined): BlueskyClient {
+  if (publicApiUrl.protocol === 'https:') {
+    return {
+      kind: 'public',
+      clientId: new URL(BLUESKY_CLIENT_METADATA_PATH, publicApiUrl),
+      redirectUrl: new URL(BLUESKY_CALLBACK_PATH, publicApiUrl),
+    };
+  }
+  if (!developmentRedirect) {
+    throw new ConfigError(
+      'Invalid environment configuration:\n  BLUESKY_REDIRECT_URL: required when PUBLIC_API_URL is not https (local development)',
+    );
+  }
+  return { kind: 'development', redirectUrl: new URL(developmentRedirect) };
 }
 
 function supabaseConfig(rawUrl: string, secretKey: string): SupabaseConfig {

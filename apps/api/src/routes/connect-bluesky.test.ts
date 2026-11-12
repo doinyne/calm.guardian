@@ -411,4 +411,22 @@ describe('connecting Bluesky', () => {
       expect(backInApp.protocol).toBe(TEST_APP_RETURN_URL.protocol);
     });
   });
+
+  describe("the deployed API's Bluesky client details", () => {
+    it('are published for Bluesky to read, without signing in', async () => {
+      const metadata = { client_id: 'https://api.example/oauth/client-metadata.json' };
+      const { app } = buildTestApp({ blueskyClientMetadata: metadata });
+
+      const response = await app.request('/oauth/client-metadata.json');
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(metadata);
+    });
+
+    it("aren't there when running locally with the development client", async () => {
+      const { app } = buildTestApp();
+
+      expect((await app.request('/oauth/client-metadata.json')).status).toBe(404);
+    });
+  });
 });

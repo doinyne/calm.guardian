@@ -28,6 +28,7 @@ type TestAppOptions = Partial<Omit<AppDependencies, 'logger' | 'connections' | '
   bluesky?: BlueskyOAuth;
   pendingConnections?: PendingConnections;
   countHiddenPosts?: CountHiddenPosts;
+  blueskyClientMetadata?: Readonly<Record<string, unknown>>;
 };
 
 /**
@@ -40,6 +41,7 @@ export function buildTestApp({
   bluesky = new FakeBlueskyOAuth(),
   pendingConnections = new FakePendingConnections(),
   countHiddenPosts = () => Promise.resolve(0),
+  blueskyClientMetadata,
   ...overrides
 }: TestAppOptions = {}) {
   const logs = captureLogs();
@@ -91,6 +93,7 @@ export function buildTestApp({
       pendingConnections,
       disconnect,
       appReturnUrl: TEST_APP_RETURN_URL,
+      ...(blueskyClientMetadata ? { blueskyClientMetadata } : {}),
     },
     calm: {
       calmMode,

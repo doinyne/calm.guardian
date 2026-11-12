@@ -93,7 +93,10 @@ describe('loadConfig', () => {
   it('reads where Bluesky sends people back to, and where the API returns them to the app', () => {
     const { bluesky } = loadConfig(REQUIRED_ENV);
 
-    expect(bluesky.redirectUrl.href).toBe('http://127.0.0.1:3000/connections/bluesky/callback');
+    expect(bluesky.client).toEqual({
+      kind: 'development',
+      redirectUrl: new URL('http://127.0.0.1:3000/connections/bluesky/callback'),
+    });
     expect(bluesky.appReturnUrl.href).toBe('calmguardian-dev://connect/bluesky');
   });
 
@@ -151,6 +154,28 @@ describe('loadConfig', () => {
     );
     expect(() => loadConfig({ ...REQUIRED_ENV, SWEEP_INTERVAL_SECONDS: '1' })).toThrow(
       /SWEEP_INTERVAL_SECONDS/,
+    );
+  });
+
+  it('makes Bluesky a public client at the API itself once deployed (https)', () => {
+    const { bluesky } = loadConfig({
+      ...REQUIRED_ENV,
+      BLUESKY_REDIRECT_URL: undefined,
+      PUBLIC_API_URL: 'https://calm-guardian-api-abc123-nw.a.run.app',
+    });
+
+    expect(bluesky.client).toEqual({
+      kind: 'public',
+      clientId: new URL('https://calm-guardian-api-abc123-nw.a.run.app/oauth/client-metadata.json'),
+      redirectUrl: new URL(
+        'https://calm-guardian-api-abc123-nw.a.run.app/connections/bluesky/callback',
+      ),
+    });
+  });
+
+  it('needs the development redirect when running locally', () => {
+    expect(() => loadConfig({ ...REQUIRED_ENV, BLUESKY_REDIRECT_URL: undefined })).toThrow(
+      /BLUESKY_REDIRECT_URL/,
     );
   });
 });

@@ -10,6 +10,7 @@ import {
 } from '../connections/connected-accounts-repository';
 import { ConnectionHasHiddenPostsError, type Disconnect } from '../connections/connection-removal';
 import type { PendingConnections } from '../connections/pending-connections';
+import { BLUESKY_CLIENT_METADATA_PATH } from '../config';
 import { errorResponse } from '../http/errors';
 import type { RequireAccount } from '../http/require-account';
 import { validate } from '../http/validation';
@@ -22,6 +23,8 @@ export type ConnectionsDependencies = {
   disconnect: Disconnect;
   /** Where Bluesky's callback sends the user back into the app. */
   appReturnUrl: URL;
+  /** A deployed API's Bluesky client details, published for Bluesky to read (ADR-0017). */
+  blueskyClientMetadata?: Readonly<Record<string, unknown>>;
 };
 
 /** What the callback tells the app when there's no sign-in to claim. */
@@ -51,6 +54,7 @@ export function connectionsRoutes({
   pendingConnections,
   disconnect,
   appReturnUrl,
+  blueskyClientMetadata,
 }: ConnectionsDependencies & { requireAccount: RequireAccount; logger: Logger }) {
   const backToApp = (c: Context, params: Record<string, string>, returnUrl?: string) => {
     const url = new URL(returnUrl ?? appReturnUrl);
@@ -60,6 +64,15 @@ export function connectionsRoutes({
 
   return (
     new Hono()
+      // Public: Bluesky fetches this to learn who we are. Only a deployed API has one.
+      .get(BLUESKY_CLIENT_METADATA_PATH, (c) =>
+        blueskyClientMetadata
+          ? c.json(blueskyClientMetadata)
+          : errorResponse(c, 404, {
+              code: 'not_found',
+              message: 'There is nothing at this address.',
+            }),
+      )
       .get('/connections', requireAccount, async (c) => {
         const accounts = await connectedAccounts.listForAccount(c.var.accountId);
         return c.json({ connectedAccounts: accounts.map(toConnectionResponse) });
