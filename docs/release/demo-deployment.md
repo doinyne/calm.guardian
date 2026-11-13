@@ -43,8 +43,8 @@ Your SMTP address is then:
 
 ## 3. Hosted Supabase
 
-1. At https://supabase.com create a project: **Region: London (eu-west-2)**, free plan. Save the
-   database password.
+1. At https://supabase.com create a project: **Region: London (eu-west-2)**, free plan (Ireland,
+   eu-west-1, works too). Save the database password.
 2. **Project Settings → JWT Keys:** make sure the **current** signing key is an **ECC (P-256)**
    or RSA key, not the legacy shared secret. If it's legacy, create a standby ECC key and rotate to
    it. The API only accepts asymmetric keys (ES256/RS256).
@@ -57,7 +57,9 @@ Your SMTP address is then:
    - Host `smtp.gmail.com`, port `465`, username your Gmail address, password the app password.
    - Sender email: your Gmail address. Sender name: `Calm Guardian`.
 
-   Without this, hosted Supabase only sends codes to your own team's addresses.
+   Without this, hosted Supabase only sends codes to your own team's addresses. If sign-in fails,
+   **Logs → Auth** shows Gmail's reason; `535 … Username and Password not accepted` means the app
+   password or username is wrong.
 6. Apply the schema (this writes to the remote database):
    ```bash
    supabase link --project-ref <project ref>      # asks for the database password
@@ -105,7 +107,9 @@ docker push "$REPO/api:v1"
 
 ## 7. Infrastructure, second apply (the API)
 
-Add the image to `infra/terraform.tfvars`:
+Add the image to `infra/terraform.tfvars`. **Don't skip this:** without `image`, the apply creates
+no API, yet `terraform output api_url` still prints an address (it's worked out, not read back), and
+every request to it returns 404.
 
 ```hcl
 image = "europe-west2-docker.pkg.dev/<project>/calm-guardian/api:v1"
@@ -133,8 +137,12 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST "$API/internal/sweep"   # 401: 
    npx eas-cli login
    npx eas-cli init          # creates the project; note the project ID it prints
    ```
-2. Publish the app for Expo Go:
+2. Publish the app for Expo Go. **Run it from `apps/mobile`.** From the repo root, eas treats the
+   monorepo as the app: it writes a root `app.json`, adds packages to the root `package.json`, and
+   fails looking for `App.tsx`. If it offers to change `runtimeVersion`, say no: `app.config.ts`
+   already sets what Expo Go needs.
    ```bash
+   cd apps/mobile && \
    EXPO_PUBLIC_APP_VARIANT=preview \
    EXPO_PUBLIC_API_URL='<api_url from step 7>' \
    EXPO_PUBLIC_SUPABASE_URL='https://<project ref>.supabase.co' \
